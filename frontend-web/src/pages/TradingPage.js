@@ -91,7 +91,7 @@ export default function TradingPage() {
     } catch (err) {
       setCurrentPrice(null);
       console.error(`Failed to fetch price for ${selectedAssetSymbol}`, err);
-      setFormError(\`Failed to fetch price for \${selectedAssetSymbol}. Service may be unavailable.\`);
+      setFormError(\`Failed to fetch price for \${selectedAssetSymbol}. Service may be unavailable.`\);
     }
     setPriceLoading(false);
   }, [selectedAssetSymbol]);
