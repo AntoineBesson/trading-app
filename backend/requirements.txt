@@ -1,1 +1,7 @@
 Flask
+Flask-SQLAlchemy
+psycopg2-binary
+Flask-JWT-Extended
+Werkzeug
+alpha_vantage
+requests
