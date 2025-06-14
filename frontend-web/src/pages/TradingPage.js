@@ -90,7 +90,7 @@ export default function TradingPage() {
       setCurrentPrice(response.data.price);
     } catch (err) {
       setCurrentPrice(null);
-      console.error(\`Failed to fetch price for \${selectedAssetSymbol}\`, err);
+      console.error(`Failed to fetch price for ${selectedAssetSymbol}`, err);
       setFormError(\`Failed to fetch price for \${selectedAssetSymbol}. Service may be unavailable.\`);
     }
     setPriceLoading(false);

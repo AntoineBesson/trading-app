@@ -67,7 +67,8 @@ export default function ContentListPage() {
         <ul style={styles.list}>
           {contents.map((content) => (
             <li key={content.id} style={styles.listItem}>
-              <Link to={\`/content/\${content.id}\`} style={styles.link}>
+              {/* Corrected Link syntax here */}
+              <Link to={`/content/${content.id}`} style={styles.link}>
                 {content.title}
               </Link>
               <p style={styles.contentType}>Type: {content.content_type}</p>

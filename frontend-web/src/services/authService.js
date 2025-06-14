@@ -5,7 +5,7 @@ import axios from 'axios';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000'; // Backend API URL
 
 const register = (username, email, password) => {
-  return axios.post(\`\${API_URL}/auth/register\`, {
+  return axios.post(`${API_URL}/auth/register`, { // Corrected template literal
     username,
     email,
     password,
@@ -13,7 +13,7 @@ const register = (username, email, password) => {
 };
 
 const login = (usernameOrEmail, password) => {
-  return axios.post(\`\${API_URL}/auth/login\`, {
+  return axios.post(`${API_URL}/auth/login`, { // Corrected template literal
     username_or_email: usernameOrEmail,
     password,
   }).then((response) => {
