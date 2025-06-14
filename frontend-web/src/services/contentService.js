@@ -7,17 +7,14 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const getAuthHeaders = () => {
   const token = authService.getAuthToken();
   if (token) {
-    return { Authorization: \`Bearer \${token}\` };
+    return { Authorization: `Bearer ${token}` }; // Corrected
   }
   return {};
 };
 
 // Fetch all educational content (paginated)
 const getAllContent = (page = 1, perPage = 10) => {
-  // The backend /content endpoint is public, so auth headers might not be strictly necessary
-  // unless we change its protection level later.
-  // For now, sending them if available doesn't hurt.
-  return axios.get(\`\${API_URL}/content\`, {
+  return axios.get(`${API_URL}/content`, { // Corrected
     headers: getAuthHeaders(),
     params: { page, per_page: perPage }
   });
@@ -25,38 +22,36 @@ const getAllContent = (page = 1, perPage = 10) => {
 
 // Fetch a single piece of educational content by its ID
 const getContentById = (id) => {
-  return axios.get(\`\${API_URL}/content/\${id}\`, {
-    headers: getAuthHeaders() // Same as above, potentially not needed if public
+  return axios.get(`${API_URL}/content/${id}`, { // Corrected
+    headers: getAuthHeaders()
   });
 };
 
 // Create new content (Example, if we add admin UI later)
-// This would definitely require authentication
 const createContent = (contentData) => {
-  return axios.post(\`\${API_URL}/content\`, contentData, {
+  return axios.post(`${API_URL}/content`, contentData, { // Corrected
     headers: getAuthHeaders()
   });
 };
 
 // Update content (Example)
 const updateContent = (id, contentData) => {
-  return axios.put(\`\${API_URL}/content/\${id}\`, contentData, {
+  return axios.put(`${API_URL}/content/${id}`, contentData, { // Corrected
     headers: getAuthHeaders()
   });
 };
 
 // Delete content (Example)
 const deleteContent = (id) => {
-  return axios.delete(\`\${API_URL}/content/\${id}\`, {
+  return axios.delete(`${API_URL}/content/${id}`, { // Corrected
     headers: getAuthHeaders()
   });
 };
 
-
 const contentService = {
   getAllContent,
   getContentById,
-  createContent, // Included for completeness, though Phase 1 UI might not use it
+  createContent,
   updateContent,
   deleteContent
 };
