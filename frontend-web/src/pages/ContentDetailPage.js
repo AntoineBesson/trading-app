@@ -58,22 +58,41 @@ export default function ContentDetailPage() {
   if (error) return <p style={styles.error}>{error} <Link to="/content" style={styles.backLink}>Back to content list</Link></p>;
   if (!content) return <p>Content not found. <Link to="/content" style={styles.backLink}>Back to content list</Link></p>;
 
-  const getYouTubeEmbedUrl = (url) => {
-    if (!url) return null;
-    try {
-      const videoUrl = new URL(url);
-      // More robust check for YouTube URLs
-      if (videoUrl.hostname.includes('youtube.com') && videoUrl.searchParams.has('v')) {
-        return \`https://www.youtube.com/embed/\${videoUrl.searchParams.get('v')}\`;
-      } else if (videoUrl.hostname === 'youtu.be' && videoUrl.pathname) {
-        return \`https://www.youtube.com/embed/\${videoUrl.pathname.substring(1)}\`;
-      }
-    } catch (e) {
-      console.error("Error parsing video URL:", e);
-      return null;
-    }
+const getYouTubeEmbedUrl = (url) => {
+  // 1. Initial check for a valid URL input
+  if (!url) {
     return null;
-  };
+  }
+
+  let videoId = null;
+
+  try {
+    const videoUrl = new URL(url);
+    const hostname = videoUrl.hostname;
+
+    // 2. Logic for standard youtube.com URLs (e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+    if (hostname.includes('youtube.com')) {
+      videoId = videoUrl.searchParams.get('v');
+    }
+    // 3. Logic for shortened youtu.be URLs (e.g., https://youtu.be/dQw4w9WgXcQ)
+    else if (hostname.includes('youtu.be')) {
+      // The video ID is in the pathname, remove the leading '/'
+      videoId = videoUrl.pathname.substring(1);
+    }
+
+  } catch (e) {
+    console.error("Error parsing the URL:", e);
+    return null; // The URL was malformed
+  }
+
+  // 4. If a video ID was found, construct and return the standard embed URL
+  if (videoId) {
+    return `https://www.youtube.com/embed/${videoId}`;
+  }
+
+  // 5. If no valid ID was found, return null
+  return null;
+};
 
   const embedUrl = content.content_type === 'video' ? getYouTubeEmbedUrl(content.video_url) : null;
 
