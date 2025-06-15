@@ -3,6 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import create_access_token, jwt_required, JWTManager, get_jwt_identity
+from flask_cors import CORS
 from alpha_vantage.foreignexchange import ForeignExchange
 from alpha_vantage.timeseries import TimeSeries
 import requests # for potential error handling
@@ -19,6 +20,7 @@ app.config['ALPHA_VANTAGE_API_KEY'] = os.environ.get('ALPHA_VANTAGE_API_KEY', 'Y
 # Initialize Extensions
 from models import db, User, EducationalContent, Asset, Trade, PortfolioHolding
 db.init_app(app)
+CORS(app, resources={r'/*': {'origins': ['http://localhost:3000', 'http://127.0.0.1:3000']}}, supports_credentials=True)
 jwt = JWTManager(app)
 
 # --- Database Initialization Command (for development) ---
