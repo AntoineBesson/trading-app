@@ -76,25 +76,29 @@ export default function TradingPage() {
     fetchAssets();
   }, []);
 
-  // Fetch price for the selected asset
-  const fetchPriceForSelectedAsset = useCallback(async () => {
-    if (!selectedAssetSymbol) {
-      setCurrentPrice(null);
-      return;
-    }
-    setPriceLoading(true);
+// Fetch price for the selected asset
+const fetchPriceForSelectedAsset = useCallback(async () => {
+  if (!selectedAssetSymbol) {
     setCurrentPrice(null);
-    setFormError(''); // Clear previous price related errors
-    try {
-      const response = await assetService.getAssetPrice(selectedAssetSymbol);
-      setCurrentPrice(response.data.price);
-    } catch (err) {
-      setCurrentPrice(null);
-      console.error(`Failed to fetch price for ${selectedAssetSymbol}`, err);
-      setFormError(\`Failed to fetch price for \${selectedAssetSymbol}. Service may be unavailable.`\);
-    }
-    setPriceLoading(false);
-  }, [selectedAssetSymbol]);
+    return;
+  }
+  
+  setPriceLoading(true);
+  setCurrentPrice(null);
+  setFormError(''); // Clear previous price related errors
+  
+  try {
+    const response = await assetService.getAssetPrice(selectedAssetSymbol);
+    setCurrentPrice(response.data.price);
+  } catch (err) {
+    setCurrentPrice(null);
+    console.error(`Failed to fetch price for ${selectedAssetSymbol}`, err);
+    setFormError(`Failed to fetch price for ${selectedAssetSymbol}. Service may be unavailable.`);
+  } finally {
+    // This block will run regardless of whether the try block succeeded or failed.
+    setPriceLoading(false); 
+  }
+}, [selectedAssetSymbol]);
 
   useEffect(() => {
     if(selectedAssetSymbol) { // Only fetch if an asset is selected
