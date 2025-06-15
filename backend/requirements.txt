@@ -5,3 +5,4 @@ Flask-JWT-Extended
 Werkzeug
 alpha_vantage
 requests
+Flask-CORS
