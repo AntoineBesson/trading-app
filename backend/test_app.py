@@ -1,6 +1,7 @@
 import pytest
 import json
-from flask_jwt_extended import create_access_token
+import jwt # For jwt.exceptions
+from flask_jwt_extended import create_access_token, decode_token
 from app import app, db # Assuming app.py is in the same directory or accessible
 
 @pytest.fixture(scope='module')
@@ -48,5 +49,17 @@ def test_get_assets_with_invalid_signature_token(test_client):
     assert response.status_code == 422
     expected_response = {"msg": "Signature verification failed"}
     assert json.loads(response.data) == expected_response
+
+def test_create_token_with_dict_identity_causes_decode_error(test_client):
+    with test_client.application.app_context():
+        identity_dict = {'id': 123, 'username': 'test_dict_identity'}
+        # create_access_token might put the dict directly into the 'sub' claim
+        access_token = create_access_token(identity=identity_dict)
+
+        # decode_token (via PyJWT) expects the 'sub' claim to be a string.
+        # If create_access_token puts the dict there, PyJWT will raise InvalidSubjectError.
+        with pytest.raises(jwt.exceptions.InvalidSubjectError) as excinfo:
+            decode_token(access_token)
+        assert "Subject must be a string" in str(excinfo.value)
 
 # Add more tests here if needed
