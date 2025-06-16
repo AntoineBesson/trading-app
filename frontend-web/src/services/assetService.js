@@ -1,8 +1,7 @@
-import apiClient from './api'; // Changed from axios
-import authService from './authService';
+import axios from 'axios';
+import authService from './authService'; // For getting the auth token
 
-// API_URL is now managed by apiClient
-// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const getAuthHeaders = () => {
   const token = authService.getAuthToken();
