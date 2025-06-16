@@ -1,8 +1,9 @@
 // frontend-web/src/services/portfolioService.js
-import axios from 'axios';
+import apiClient from './api'; // Changed from axios
 import authService from './authService';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+// API_URL is now managed by apiClient
+// const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const getAuthHeaders = () => {
   const token = authService.getAuthToken();
@@ -13,7 +14,8 @@ const getAuthHeaders = () => {
 };
 
 const getPortfolio = () => {
-  return axios.get(`${API_URL}/portfolio`, { headers: getAuthHeaders() });
+  // Changed from axios.get(`${API_URL}/portfolio`...) to apiClient.get('/portfolio'...)
+  return apiClient.get(`/portfolio`, { headers: getAuthHeaders() });
 };
 
 const portfolioService = {
