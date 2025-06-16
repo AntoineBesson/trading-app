@@ -20,6 +20,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL',
     os.environ.get('postgresql://trader_app_user:a_much_stronger_password@localhost:5432/trader_db', 'postgresql://trader_app_user:a_much_stronger_password@localhost/trader_db')
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'super-secret-dev-key-make-sure-to-change-this') # Added a more explicit warning in default
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=15) # Explicitly setting default, can be configured via ENV if needed
 app.config['ALPHA_VANTAGE_API_KEY'] = os.environ.get('ALPHA_VANTAGE_API_KEY', 'YOUR_ALPHA_VANTAGE_API_KEY_PLEASE_SET') # Added a more explicit warning

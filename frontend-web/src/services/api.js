@@ -16,11 +16,11 @@ apiClient.interceptors.response.use(
     if (error.response && error.response.status === 401 && originalRequest.url !== `${API_URL}/auth/login` && originalRequest.url !== `${API_URL}/auth/register`) {
       console.warn('Axios interceptor: Detected 401 error. Logging out.');
       authService.logout(); // Clear token and user state
-
+      
       // Redirect to login page
       // Avoid redirect loop if already on login or if public pages are involved
       if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-        window.location.href = '/login';
+        window.location.href = '/login'; 
         // For React Router, you might use a navigation service or history object
         // e.g., history.push('/login');
       }
