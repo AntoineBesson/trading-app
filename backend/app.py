@@ -1,33 +1,45 @@
 import os
-import json # <--- ENSURED IMPORT
+import json
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import create_access_token, jwt_required, JWTManager, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_cors import CORS # Ensure CORS is imported
-from decimal import Decimal # For trade/portfolio logic
+from flask_cors import CORS
+from decimal import Decimal
+from datetime import timedelta # Ensure timedelta is imported for explicit token expiry
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize Flask App
 app = Flask(__name__)
 
 # Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('postgresql://trader_app_user:a_much_stronger_password@localhost:5432/trader_db', 'postgresql://trader_app_user:a_much_stronger_password@localhost/trader_db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL',
+    os.environ.get('postgresql://trader_app_user:a_much_stronger_password@localhost:5432/trader_db', 'postgresql://trader_app_user:a_much_stronger_password@localhost/trader_db')
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'super-secret-dev-key')
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'super-secret-dev-key-make-sure-to-change-this') # Added a more explicit warning in default
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=15) # Explicitly setting default, can be configured via ENV if needed
+app.config['ALPHA_VANTAGE_API_KEY'] = os.environ.get('ALPHA_VANTAGE_API_KEY', 'YOUR_ALPHA_VANTAGE_API_KEY_PLEASE_SET') # Added a more explicit warning
 
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 10 # Expires in 10 seconds for testing
-app.config['ALPHA_VANTAGE_API_KEY'] = os.environ.get('ALPHA_VANTAGE_API_KEY', '672OTZDNKCMUIFDY')
+# Initialize CORS
+# Allow all origins specified in FRONTEND_URL or default to localhost
+frontend_urls = [url.strip() for url in os.environ.get('FRONTEND_URL', 'http://localhost:3000,http://127.0.0.1:3000').split(',') if url.strip()]
+if not frontend_urls: # Fallback if FRONTEND_URL is empty string
+    frontend_urls = ['http://localhost:3000', 'http://127.0.0.1:3000']
 
+CORS(app, resources={r'/*': {'origins': frontend_urls}}, supports_credentials=True)
 
-# Initialize CORS - Placed after config and before other extensions
-CORS(app, resources={r'/*': {'origins': ['http://localhost:3000', 'http://127.0.0.1:3000']}}, supports_credentials=True)
 
 # Initialize Extensions
-from models import db, User, EducationalContent, Asset, Trade, PortfolioHolding # Import all models
+# Ensure models.py is correctly structured and in the same directory or accessible via PYTHONPATH
+from models import db, User, EducationalContent, Asset, Trade, PortfolioHolding
 db.init_app(app)
 jwt = JWTManager(app)
 
-# Alpha Vantage specific imports (needed for price fetching helper)
+# Alpha Vantage specific imports
 from alpha_vantage.foreignexchange import ForeignExchange
 from alpha_vantage.timeseries import TimeSeries
 import requests
@@ -48,9 +60,10 @@ def home():
 @app.route('/health')
 def health_check():
     try:
-        db.session.execute('SELECT 1') # Use text() for SQLAlchemy 2.0 if needed: db.session.execute(text('SELECT 1'))
+        db.session.execute(db.text('SELECT 1'))
         return jsonify(status='healthy', database_status='connected')
     except Exception as e:
+        app.logger.error(f"Health check DB error: {str(e)}")
         return jsonify(status='unhealthy', database_status='disconnected', error=str(e)), 500
 
 # --- User Authentication Endpoints ---
@@ -95,7 +108,7 @@ def login():
 
     if user and user.check_password(password):
         identity_data = {'id': user.id, 'username': user.username}
-        access_token = create_access_token(identity=json.dumps(identity_data)) # CORRECTED
+        access_token = create_access_token(identity=json.dumps(identity_data))
         return jsonify(access_token=access_token), 200
     else:
         return jsonify(message="Invalid username/email or password"), 401
@@ -104,7 +117,7 @@ def login():
 @jwt_required()
 def protected():
     raw_identity = get_jwt_identity()
-    current_user_identity = json.loads(raw_identity) # CORRECTED
+    current_user_identity = json.loads(raw_identity)
     return jsonify(logged_in_as=current_user_identity), 200
 
 # --- Educational Content (CMS) Endpoints ---
@@ -119,7 +132,7 @@ def create_content():
     video_url = data.get('video_url')
     
     raw_identity = get_jwt_identity()
-    current_user_identity_dict = json.loads(raw_identity) # CORRECTED
+    current_user_identity_dict = json.loads(raw_identity)
     author_id = current_user_identity_dict['id']
 
     if not title or not content_type: return jsonify(message="Title and content_type are required"), 400
@@ -155,7 +168,7 @@ def update_content(content_id):
     if not content: return jsonify(message="Content not found"), 404
     
     raw_identity = get_jwt_identity()
-    current_user_identity_dict = json.loads(raw_identity) # CORRECTED
+    current_user_identity_dict = json.loads(raw_identity)
     if content.author_id != current_user_identity_dict['id']: return jsonify(message="Forbidden: You can only update your own content"), 403
 
     data = request.get_json();
@@ -178,7 +191,7 @@ def delete_content(content_id):
     if not content: return jsonify(message="Content not found"), 404
 
     raw_identity = get_jwt_identity()
-    current_user_identity_dict = json.loads(raw_identity) # CORRECTED
+    current_user_identity_dict = json.loads(raw_identity)
     if content.author_id != current_user_identity_dict['id']: return jsonify(message="Forbidden: You can only delete your own content"), 403
     
     try:
@@ -192,8 +205,6 @@ def delete_content(content_id):
 @app.route('/assets', methods=['GET'])
 @jwt_required() 
 def list_assets():
-    # @jwt_required handles token verification; identity is string if properly set by login
-    # No direct get_jwt_identity() call here, but it's used by @jwt_required
     try:
         assets = Asset.query.all()
         return jsonify(assets=[asset.to_dict() for asset in assets]), 200
@@ -202,13 +213,23 @@ def list_assets():
         return jsonify(message="Error fetching assets from database"), 500
 
 # --- Helper function to get current price ---
-def get_current_price_for_asset(asset_db_object): 
+def get_current_price_for_asset(asset_db_object):
+    if os.environ.get('MOCK_ASSET_PRICES') == 'true':
+        app.logger.info(f"MOCK PRICE: Returning mock price for {asset_db_object.symbol}")
+        if asset_db_object.asset_type.lower() == 'stock':
+            return Decimal('150.75')
+        elif asset_db_object.asset_type.lower() == 'crypto':
+            return Decimal('2500.50')
+        else:
+            return Decimal('100.00')
+
     api_key = app.config.get('ALPHA_VANTAGE_API_KEY')
-    if not api_key or api_key == 'YOUR_ALPHA_VANTAGE_API_KEY':
-        app.logger.error("Alpha Vantage API Key not configured.")
+    if not api_key or api_key == 'YOUR_ALPHA_VANTAGE_API_KEY_PLEASE_SET' or api_key == 'YOUR_ALPHA_VANTAGE_API_KEY': # check against both common placeholder values
+        app.logger.error("Alpha Vantage API Key not configured or is placeholder.")
         return None
 
-    price_str = None; data_from_av = None
+    price_str = None
+    data_from_av = None
     try:
         if asset_db_object.asset_type.lower() == 'stock':
             ts = TimeSeries(key=api_key, output_format='json')
@@ -216,24 +237,34 @@ def get_current_price_for_asset(asset_db_object):
             price_str = data_from_av.get('05. price') if data_from_av else None
         elif asset_db_object.asset_type.lower() == 'crypto':
             if len(asset_db_object.symbol) > 3 and asset_db_object.symbol.endswith('USD'):
-                from_currency = asset_db_object.symbol[:-3]; to_currency = 'USD'
+                from_currency = asset_db_object.symbol[:-3]
+                to_currency = 'USD'
                 fe = ForeignExchange(key=api_key, output_format='json')
                 data_from_av, _ = fe.get_currency_exchange_rate(from_currency_code=from_currency, to_currency_code=to_currency)
                 price_str = data_from_av.get('Realtime Currency Exchange Rate', {}).get('5. Exchange Rate') if data_from_av else None
             else:
-                app.logger.warning(f"Unsupported crypto symbol format: {asset_db_object.symbol}")
+                app.logger.warning(f"Unsupported crypto symbol format for price fetching: {asset_db_object.symbol}")
                 return None
-        if price_str: return Decimal(price_str)
-        app.logger.warning(f"Price not found for {asset_db_object.symbol}. AV Data: {data_from_av}")
+
+        if price_str:
+            return Decimal(price_str)
+
+        app.logger.warning(f"Price not found for {asset_db_object.symbol} via Alpha Vantage. AV Data: {data_from_av}")
         return None
-    except requests.exceptions.RequestException as e: app.logger.error(f"Network error for {asset_db_object.symbol}: {str(e)}"); return None
-    except ValueError as e: app.logger.error(f"AV API error for {asset_db_object.symbol}: {str(e)}"); return None
-    except Exception as e: app.logger.error(f"Unexpected error for {asset_db_object.symbol}: {str(e)}"); return None
+
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Network error fetching price for {asset_db_object.symbol}: {str(e)}")
+        return None
+    except ValueError as e:
+        app.logger.error(f"Alpha Vantage API or data error for {asset_db_object.symbol}: {str(e)}. AV Data: {data_from_av}")
+        return None
+    except Exception as e:
+        app.logger.error(f"Unexpected error fetching price for {asset_db_object.symbol}: {str(e)}")
+        return None
 
 @app.route('/assets/<string:symbol>/price', methods=['GET'])
 @jwt_required()
 def get_asset_price(symbol):
-    # @jwt_required handles token verification
     asset_from_db = Asset.query.filter_by(symbol=symbol.upper()).first()
     if not asset_from_db: return jsonify(message=f"Asset {symbol} not found."), 404
     current_price = get_current_price_for_asset(asset_from_db)
@@ -258,7 +289,7 @@ def place_trade_order():
     if order_type not in ['market_buy', 'market_sell']: return jsonify(message="Invalid order_type"), 400
 
     raw_identity = get_jwt_identity()
-    current_user_identity_dict = json.loads(raw_identity) # CORRECTED
+    current_user_identity_dict = json.loads(raw_identity)
     user_id = current_user_identity_dict['id']
     
     asset = Asset.query.filter_by(symbol=asset_symbol.upper()).first()
@@ -274,8 +305,8 @@ def place_trade_order():
         if holding.quantity == Decimal(0): db.session.delete(holding)
     elif order_type == 'market_buy':
         if holding:
-            avg_price = Decimal(holding.average_purchase_price) # Ensure Decimal
-            current_qty = Decimal(holding.quantity)      # Ensure Decimal
+            avg_price = Decimal(holding.average_purchase_price)
+            current_qty = Decimal(holding.quantity)
             new_total_cost = (avg_price * current_qty) + (current_price * quantity)
             holding.quantity = current_qty + quantity
             holding.average_purchase_price = new_total_cost / holding.quantity
@@ -295,22 +326,25 @@ def place_trade_order():
 @jwt_required()
 def get_portfolio():
     raw_identity = get_jwt_identity()
-    current_user_identity_dict = json.loads(raw_identity) # CORRECTED
+    current_user_identity_dict = json.loads(raw_identity)
     user_id = current_user_identity_dict['id']
 
     holdings = PortfolioHolding.query.filter_by(user_id=user_id).all()
     portfolio_data = []; total_portfolio_value = Decimal(0); total_portfolio_cost = Decimal(0)
 
     for holding_item in holdings: 
-        current_holding_qty = Decimal(holding_item.quantity) # Ensure Decimal
-        if current_holding_qty <= Decimal(0): continue
+        current_holding_qty = Decimal(holding_item.quantity)
+        if current_holding_qty <= Decimal(0): continue # Skip if quantity is zero or less
+
         asset_item = Asset.query.get(holding_item.asset_id) 
-        if not asset_item: continue 
+        if not asset_item:
+            app.logger.warning(f"Asset with ID {holding_item.asset_id} not found for holding of user {user_id}.")
+            continue
 
         current_price = get_current_price_for_asset(asset_item)
         current_value_str, profit_loss_str, profit_loss_percent_str = "N/A", "N/A", "N/A"
         
-        avg_purchase_price = Decimal(holding_item.average_purchase_price) # Ensure Decimal
+        avg_purchase_price = Decimal(holding_item.average_purchase_price)
         holding_cost = avg_purchase_price * current_holding_qty
         total_portfolio_cost += holding_cost
 
@@ -329,17 +363,20 @@ def get_portfolio():
             'current_value': current_value_str, 'holding_cost': f"{holding_cost:.2f}",
             'profit_loss': profit_loss_str, 'profit_loss_percent': profit_loss_percent_str
         })
+
     overall_profit_loss = total_portfolio_value - total_portfolio_cost
     overall_profit_loss_percent_str = "N/A"
-    if total_portfolio_cost != Decimal(0): overall_profit_loss_percent_str = f"{(overall_profit_loss / total_portfolio_cost) * Decimal(100):.2f}%"
-    elif total_portfolio_value > Decimal(0) and total_portfolio_cost == Decimal(0) : overall_profit_loss_percent_str = "+Inf%"
-    elif total_portfolio_value == Decimal(0) and total_portfolio_cost == Decimal(0): overall_profit_loss_percent_str = "0.00%"
+    if total_portfolio_cost != Decimal(0):
+        overall_profit_loss_percent_str = f"{(overall_profit_loss / total_portfolio_cost) * Decimal(100):.2f}%"
+    elif total_portfolio_value > Decimal(0) and total_portfolio_cost == Decimal(0) :
+        overall_profit_loss_percent_str = "+Inf%" # E.g. free shares that gained value
+    elif total_portfolio_value == Decimal(0) and total_portfolio_cost == Decimal(0) and not portfolio_data : # No holdings, no cost, no value
+        overall_profit_loss_percent_str = "0.00%"
+    # If portfolio_data exists but total_portfolio_cost is 0 (e.g. all free shares, no current price) then it remains N/A unless value exists.
 
 
     return jsonify(holdings=portfolio_data, summary={'total_portfolio_value': f"{total_portfolio_value:.2f}", 'total_portfolio_cost': f"{total_portfolio_cost:.2f}", 'overall_profit_loss': f"{overall_profit_loss:.2f}", 'overall_profit_loss_percent': overall_profit_loss_percent_str}), 200
 
 if __name__ == '__main__':
-    with app.app_context():
-        # db.drop_all() # Optional: for clean slate during dev, use with caution
-        db.create_all() 
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
