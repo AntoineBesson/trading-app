@@ -16,11 +16,10 @@ load_dotenv()
 app = Flask(__name__)
 
 # Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL',
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 
     os.environ.get('postgresql://trader_app_user:a_much_stronger_password@localhost:5432/trader_db', 'postgresql://trader_app_user:a_much_stronger_password@localhost/trader_db')
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'super-secret-dev-key-make-sure-to-change-this') # Added a more explicit warning in default
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=15) # Explicitly setting default, can be configured via ENV if needed
 app.config['ALPHA_VANTAGE_API_KEY'] = os.environ.get('ALPHA_VANTAGE_API_KEY', 'YOUR_ALPHA_VANTAGE_API_KEY_PLEASE_SET') # Added a more explicit warning
@@ -249,17 +248,17 @@ def get_current_price_for_asset(asset_db_object):
 
         if price_str:
             return Decimal(price_str)
-
+        
         app.logger.warning(f"Price not found for {asset_db_object.symbol} via Alpha Vantage. AV Data: {data_from_av}")
         return None
-
+    
     except requests.exceptions.RequestException as e:
         app.logger.error(f"Network error fetching price for {asset_db_object.symbol}: {str(e)}")
         return None
-    except ValueError as e:
+    except ValueError as e: 
         app.logger.error(f"Alpha Vantage API or data error for {asset_db_object.symbol}: {str(e)}. AV Data: {data_from_av}")
         return None
-    except Exception as e:
+    except Exception as e: 
         app.logger.error(f"Unexpected error fetching price for {asset_db_object.symbol}: {str(e)}")
         return None
 
@@ -299,29 +298,81 @@ def place_trade_order():
     current_price = get_current_price_for_asset(asset)
     if current_price is None: return jsonify(message=f"Could not get price for {asset_symbol}"), 503
 
+    # Fetch the user object to access cash_balance
+    user = User.query.get(user_id)
+    if not user:
+        # This case should ideally not be reached if JWT identity is valid
+        return jsonify(message="User not found for ID in token"), 404 
+
     holding = PortfolioHolding.query.filter_by(user_id=user_id, asset_id=asset.id).first()
+
     if order_type == 'market_sell':
-        if not holding or holding.quantity < quantity: return jsonify(message="Insufficient holdings"), 400
+        if not holding or holding.quantity < quantity:
+            return jsonify(message="Insufficient holdings to sell"), 400
+        
+        total_proceeds = quantity * current_price
+        user.cash_balance += total_proceeds  # Add cash to user
+        
         holding.quantity -= quantity
-        if holding.quantity == Decimal(0): db.session.delete(holding)
+        if holding.quantity == Decimal(0):
+            db.session.delete(holding)
+
     elif order_type == 'market_buy':
+        total_cost = quantity * current_price
+        if user.cash_balance < total_cost:
+            return jsonify(message="Insufficient funds to complete this purchase."), 400
+        
+        user.cash_balance -= total_cost # Deduct cash from user
+
         if holding:
             avg_price = Decimal(holding.average_purchase_price)
             current_qty = Decimal(holding.quantity)
-            new_total_cost = (avg_price * current_qty) + (current_price * quantity)
+            new_total_value_of_holding = (avg_price * current_qty) + total_cost # Cost of old + cost of new
             holding.quantity = current_qty + quantity
-            holding.average_purchase_price = new_total_cost / holding.quantity
+            holding.average_purchase_price = new_total_value_of_holding / holding.quantity
         else:
-            holding = PortfolioHolding(user_id=user_id, asset_id=asset.id, quantity=quantity, average_purchase_price=current_price)
+            holding = PortfolioHolding(
+                user_id=user_id, 
+                asset_id=asset.id, 
+                quantity=quantity, 
+                average_purchase_price=current_price
+            )
             db.session.add(holding)
 
-    new_trade = Trade(user_id=user_id, asset_id=asset.id, order_type=order_type, quantity=quantity, price_at_execution=current_price)
+    new_trade = Trade(
+        user_id=user_id, 
+        asset_id=asset.id, 
+        order_type=order_type, 
+        quantity=quantity, 
+        price_at_execution=current_price
+    )
     db.session.add(new_trade)
+    # User object (for cash_balance) is already part of the session if fetched, 
+    # SQLAlchemy tracks changes to it.
+
     try:
         db.session.commit()
     except Exception as e:
-        db.session.rollback(); app.logger.error(f"Error in trade order: {str(e)}"); return jsonify(message="Error processing order"), 500
-    return jsonify(message="Order placed", trade=new_trade.to_dict(), holding_updated=(holding.to_dict() if holding and holding.quantity > 0 else None)), 201
+        db.session.rollback()
+        app.logger.error(f"Error in trade order execution or commit: {str(e)}")
+        return jsonify(message="Error processing order on the server."), 500
+    
+    holding_updated_dict = None
+    if order_type == 'market_buy': 
+        # if it was a buy, holding is guaranteed to exist (either pre-existing or newly created)
+        # Re-fetch to ensure data is fresh from DB after commit, especially if new.
+        holding_updated_dict = PortfolioHolding.query.get({'user_id': user_id, 'asset_id': asset.id}).to_dict()
+    elif order_type == 'market_sell':
+        updated_holding_after_sell = PortfolioHolding.query.get({'user_id': user_id, 'asset_id': asset.id})
+        if updated_holding_after_sell: # If it still exists (quantity > 0)
+            holding_updated_dict = updated_holding_after_sell.to_dict()
+        # If it doesn't exist (quantity became 0 and was deleted), holding_updated_dict remains None
+
+    return jsonify(
+        message="Order placed", 
+        trade=new_trade.to_dict(), 
+        holding_updated=holding_updated_dict
+    ), 201
 
 @app.route('/portfolio', methods=['GET'])
 @jwt_required()
@@ -330,17 +381,25 @@ def get_portfolio():
     current_user_identity_dict = json.loads(raw_identity)
     user_id = current_user_identity_dict['id']
 
+    # Fetch the user object to access cash_balance
+    user = User.query.get(user_id)
+    if not user:
+        # This case should ideally not be reached if JWT identity is valid
+        return jsonify(message="User not found for ID in token"), 404
+
     holdings = PortfolioHolding.query.filter_by(user_id=user_id).all()
-    portfolio_data = []; total_portfolio_value = Decimal(0); total_portfolio_cost = Decimal(0)
+    portfolio_data = []
+    total_portfolio_value = Decimal(0)
+    total_portfolio_cost = Decimal(0)
 
     for holding_item in holdings: 
         current_holding_qty = Decimal(holding_item.quantity)
         if current_holding_qty <= Decimal(0): continue # Skip if quantity is zero or less
-
+        
         asset_item = Asset.query.get(holding_item.asset_id) 
-        if not asset_item:
+        if not asset_item: 
             app.logger.warning(f"Asset with ID {holding_item.asset_id} not found for holding of user {user_id}.")
-            continue
+            continue 
 
         current_price = get_current_price_for_asset(asset_item)
         current_value_str, profit_loss_str, profit_loss_percent_str = "N/A", "N/A", "N/A"
@@ -364,19 +423,27 @@ def get_portfolio():
             'current_value': current_value_str, 'holding_cost': f"{holding_cost:.2f}",
             'profit_loss': profit_loss_str, 'profit_loss_percent': profit_loss_percent_str
         })
-
+        
     overall_profit_loss = total_portfolio_value - total_portfolio_cost
     overall_profit_loss_percent_str = "N/A"
-    if total_portfolio_cost != Decimal(0):
+    if total_portfolio_cost != Decimal(0): 
         overall_profit_loss_percent_str = f"{(overall_profit_loss / total_portfolio_cost) * Decimal(100):.2f}%"
-    elif total_portfolio_value > Decimal(0) and total_portfolio_cost == Decimal(0) :
+    elif total_portfolio_value > Decimal(0) and total_portfolio_cost == Decimal(0) : 
         overall_profit_loss_percent_str = "+Inf%" # E.g. free shares that gained value
     elif total_portfolio_value == Decimal(0) and total_portfolio_cost == Decimal(0) and not portfolio_data : # No holdings, no cost, no value
         overall_profit_loss_percent_str = "0.00%"
     # If portfolio_data exists but total_portfolio_cost is 0 (e.g. all free shares, no current price) then it remains N/A unless value exists.
 
+    # Add user's cash balance to the summary
+    summary_data = {
+        'total_portfolio_value': f"{total_portfolio_value:.2f}", 
+        'total_portfolio_cost': f"{total_portfolio_cost:.2f}", 
+        'overall_profit_loss': f"{overall_profit_loss:.2f}", 
+        'overall_profit_loss_percent': overall_profit_loss_percent_str,
+        'user_cash_balance': f"{user.cash_balance:.2f}" # Added cash balance
+    }
 
-    return jsonify(holdings=portfolio_data, summary={'total_portfolio_value': f"{total_portfolio_value:.2f}", 'total_portfolio_cost': f"{total_portfolio_cost:.2f}", 'overall_profit_loss': f"{overall_profit_loss:.2f}", 'overall_profit_loss_percent': overall_profit_loss_percent_str}), 200
+    return jsonify(holdings=portfolio_data, summary=summary_data), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
