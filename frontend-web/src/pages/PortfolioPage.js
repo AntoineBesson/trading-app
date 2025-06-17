@@ -54,6 +54,7 @@ export default function PortfolioPage() {
       <p>Total Portfolio Value: ${portfolio.summary?.total_portfolio_value || 'N/A'}</p>
       <p>Total Portfolio Cost: ${portfolio.summary?.total_portfolio_cost || 'N/A'}</p>
       <p>Overall Profit/Loss: ${portfolio.summary?.overall_profit_loss || 'N/A'} ({portfolio.summary?.overall_profit_loss_percent || 'N/A'})</p>
+         <p>Available Cash: ${portfolio.summary?.user_cash_balance || 'N/A'}</p> {/* <--- ADD THIS LINE */}
 
       <h2>Holdings</h2>
       {portfolio.holdings.map((holding, index) => (
