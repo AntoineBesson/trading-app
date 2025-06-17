@@ -33,17 +33,17 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
     // originalRequest.url will be the full path including baseURL
     // So, we check if it *ends with* these paths.
-    if (error.response && error.response.status === 401 &&
+    if (error.response && error.response.status === 401 && 
         originalRequest.url && // Ensure URL exists
-        !originalRequest.url.endsWith('/auth/login') &&
+        !originalRequest.url.endsWith('/auth/login') && 
         !originalRequest.url.endsWith('/auth/register')) {
-
+      
       console.warn('Axios interceptor: Detected 401 error. Logging out.');
       authService.logout(); // Clear token and user state
-
+      
       // Avoid redirect loop if already on login or if public pages are involved
       if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-        window.location.href = '/login';
+        window.location.href = '/login'; 
       }
     }
     return Promise.reject(error);
