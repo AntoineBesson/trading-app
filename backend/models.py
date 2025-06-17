@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from decimal import Decimal # Added import
 
 db = SQLAlchemy()
 
@@ -10,6 +11,7 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    cash_balance = db.Column(db.Numeric(precision=18, scale=2), nullable=False, default=Decimal('10000.00'))
     created_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now())
 
     def set_password(self, password):
