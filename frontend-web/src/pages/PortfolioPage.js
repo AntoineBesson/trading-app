@@ -1,6 +1,46 @@
 // frontend-web/src/pages/PortfolioPage.js
 import React, { useState, useEffect } from 'react';
-import portfolioService from '../services/portfolioService'; // Adjust path if needed
+import portfolioService from '../services/portfolioService';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const styles = {
+  background: {
+    minHeight: '100vh',
+    background: 'linear-gradient(135deg, #f8fafc 0%, #e0e7ef 100%)',
+    padding: '2.5rem 0',
+  },
+  card: {
+    background: '#fff',
+    borderRadius: '18px',
+    boxShadow: '0 4px 32px rgba(0,0,0,0.08)',
+    maxWidth: '600px',
+    margin: '2rem auto',
+    padding: '2.5rem 2rem',
+    textAlign: 'center',
+  },
+  title: {
+    fontSize: '2rem',
+    fontWeight: 700,
+    marginBottom: '1.2rem',
+    color: '#222',
+  },
+  section: {
+    margin: '2rem 0',
+  },
+  summary: {
+    fontSize: '1.1rem',
+    color: '#444',
+    marginBottom: '1.5rem',
+  },
+  error: {
+    color: '#ef4444',
+    marginBottom: '1rem',
+    fontSize: '1rem',
+    textAlign: 'center',
+  },
+};
+
+const COLORS = ['#6366f1', '#60a5fa', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#f472b6', '#38bdf8'];
 
 export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState(null);
@@ -15,68 +55,89 @@ export default function PortfolioPage() {
         const response = await portfolioService.getPortfolio();
         setPortfolio(response.data);
       } catch (err) {
-        console.error("Error fetching portfolio:", err);
         setError(err.response?.data?.message || err.message || 'Failed to fetch portfolio data.');
-        if (err.response?.status === 401) {
-          setError('Unauthorized: Please log in again.');
-        }
       } finally {
         setLoading(false);
       }
     };
-
     fetchPortfolioData();
   }, []);
 
   if (loading) {
-    return <div>Loading portfolio...</div>;
+    return <div style={styles.background}><div style={styles.card}>Loading portfolio...</div></div>;
   }
-
   if (error) {
-    return <div style={{ color: 'red' }}>Error: {error}</div>;
+    return <div style={styles.background}><div style={styles.card}><div style={styles.error}>Error: {error}</div></div></div>;
   }
-
-  // If portfolio data is null or summary is missing after loading and no error, 
-  // it's an unexpected state, but we can show a generic message.
-  // Or, if portfolio is an empty object initially from backend by design when no user data
-  if (!portfolio || !portfolio.summary) { 
+  if (!portfolio || !portfolio.summary) {
     return (
-      <div>
-        <h1>Portfolio Page</h1>
-        <p>No portfolio data available or portfolio is empty.</p> 
-        {/* This case might indicate an issue if user is logged in and data should exist */}
+      <div style={styles.background}>
+        <div style={styles.card}>
+          <div style={styles.title}>Portfolio</div>
+          <p>No portfolio data available or portfolio is empty.</p>
+        </div>
       </div>
     );
   }
 
-  // Always render Summary if portfolio data and summary object are present
-  return (
-    <div>
-      <h1>Portfolio Page</h1>
-      
-      <h2>Summary</h2>
-      <p>Total Portfolio Value: ${portfolio.summary.total_portfolio_value || 'N/A'}</p>
-      <p>Total Portfolio Cost: ${portfolio.summary.total_portfolio_cost || 'N/A'}</p>
-      <p>Overall Profit/Loss: ${portfolio.summary.overall_profit_loss || 'N/A'} ({portfolio.summary.overall_profit_loss_percent || 'N/A'})</p>
-      <p>Available Cash: ${portfolio.summary.user_cash_balance || 'N/A'}</p>
+  // Calculate invested and uninvested (cash) for pie chart
+  const invested = (portfolio.holdings || []).reduce((sum, h) => sum + (h.current_value || 0), 0);
+  const total = Number(portfolio.summary.total_portfolio_value) || invested;
+  const cash = total - invested;
 
-      <h2>Holdings</h2>
-      {(!portfolio.holdings || portfolio.holdings.length === 0) ? (
-        <p>You have no holdings in your portfolio.</p>
-      ) : (
-        portfolio.holdings.map((holding, index) => (
-          <div key={index} style={{ border: '1px solid #ccc', margin: '10px', padding: '10px' }}>
-            <h3>{holding.name} ({holding.symbol})</h3>
-            <p>Quantity: {holding.quantity}</p>
-            <p>Average Purchase Price: ${holding.average_purchase_price}</p>
-            <p>Current Price: ${holding.current_price || 'N/A'}</p>
-            <p>Current Value: ${holding.current_value || 'N/A'}</p>
-            <p>Holding Cost: ${holding.holding_cost || 'N/A'}</p>
-            <p>Profit/Loss: ${holding.profit_loss || 'N/A'} ({holding.profit_loss_percent || 'N/A'})</p>
-          </div>
-        ))
-      )}
-      {/* <pre>{JSON.stringify(portfolio, null, 2)}</pre> */}
+  // Pie chart data: show invested and cash
+  const pieData = [
+    { name: 'Invested', value: invested },
+    { name: 'Cash', value: cash > 0 ? cash : 0 }
+  ];
+
+  return (
+    <div style={styles.background}>
+      <div style={styles.card}>
+        <div style={styles.title}>Portfolio</div>
+        <div style={styles.section}>
+          <div style={styles.summary}><b>Total Value:</b> ${portfolio.summary.total_portfolio_value || 'N/A'}</div>
+          <div style={styles.summary}><b>Total Cost:</b> ${portfolio.summary.total_portfolio_cost || 'N/A'}</div>
+          <div style={styles.summary}><b>Profit/Loss:</b> ${portfolio.summary.overall_profit_loss || 'N/A'} ({portfolio.summary.overall_profit_loss_percent || 'N/A'})</div>
+          <div style={styles.summary}><b>Total Cash:</b> ${cash.toFixed(2)}</div>
+        </div>
+        <div style={styles.section}>
+          <h3 style={{marginBottom: '1rem', color: '#333'}}>Portfolio Breakdown</h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
+                {pieData.map((entry, idx) => (
+                  <Cell key={`cell-${idx}`} fill={idx === 0 ? '#6366f1' : '#60a5fa'} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={styles.section}>
+          <h3 style={{marginBottom: '1rem', color: '#333'}}>Holdings</h3>
+          {(portfolio.holdings || []).length === 0 && <p>No holdings.</p>}
+          {(portfolio.holdings || []).map((holding, idx) => (
+            <div key={idx} style={{
+              background: '#f8fafc',
+              borderRadius: '10px',
+              padding: '1rem',
+              marginBottom: '1.2rem',
+              boxShadow: '0 1px 4px rgba(99,102,241,0.04)'
+            }}>
+              <h3 style={{margin: 0, color: '#6366f1'}}>{holding.name} ({holding.symbol})</h3>
+              <p style={{margin: '0.3rem 0'}}>Quantity: {holding.quantity}</p>
+              <p style={{margin: '0.3rem 0'}}>Average Purchase Price: ${holding.average_purchase_price}</p>
+              <p style={{margin: '0.3rem 0'}}>Current Price: ${holding.current_price || 'N/A'}</p>
+              <p style={{margin: '0.3rem 0'}}>Current Value: ${holding.current_value || 'N/A'}</p>
+              <p style={{margin: '0.3rem 0'}}>Holding Cost: ${holding.holding_cost || 'N/A'}</p>
+              <p style={{margin: '0.3rem 0'}}>Profit/Loss: ${holding.profit_loss || 'N/A'} ({holding.profit_loss_percent || 'N/A'})</p>
+            </div>
+          ))}
+        </div>
+        {/* <pre>{JSON.stringify(portfolio, null, 2)}</pre> */}
+      </div>
     </div>
   );
 }
