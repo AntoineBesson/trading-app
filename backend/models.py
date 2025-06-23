@@ -16,6 +16,7 @@ class User(db.Model):
     # Add education progress and quiz state as JSON columns
     education_progress = db.Column(db.JSON, nullable=True)
     education_quiz = db.Column(db.JSON, nullable=True)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False) # Admin rights
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -39,8 +40,11 @@ class EducationalContent(db.Model):
     author_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     created_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now())
     updated_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), onupdate=db.func.now())
+    module_id = db.Column(db.Integer, db.ForeignKey('modules.id', ondelete='SET NULL'), nullable=True)
+    order = db.Column(db.Integer, nullable=True)
 
     author = db.relationship('User', backref=db.backref('educational_contents', lazy=True))
+    module = db.relationship('Module', back_populates='lessons')
 
     def __repr__(self):
         return f'<EducationalContent {self.id}: {self.title[:30]}...>'
@@ -56,6 +60,8 @@ class EducationalContent(db.Model):
             'author_username': self.author.username if self.author else None, # Include author's username
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'module_id': self.module_id,
+            'order': self.order
         }
 
 class Asset(db.Model):
@@ -136,3 +142,90 @@ class PortfolioHolding(db.Model):
             'quantity': str(self.quantity), # Convert Decimal to string
             'average_purchase_price': str(self.average_purchase_price) # Convert Decimal
         }
+
+class News(db.Model):
+    __tablename__ = 'news'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    preview = db.Column(db.String(255), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now())
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'preview': self.preview,
+            'content': self.content,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+class Quiz(db.Model):
+    __tablename__ = 'quizzes'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    lesson_id = db.Column(db.Integer, db.ForeignKey('educational_content.id', ondelete='CASCADE'), nullable=True)
+    created_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now())
+    updated_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), onupdate=db.func.now())
+
+    lesson = db.relationship('EducationalContent', backref=db.backref('quizzes', lazy=True))
+    questions = db.relationship('QuizQuestion', backref='quiz', cascade='all, delete-orphan', lazy=True)
+
+    def to_dict(self, include_questions=False):
+        data = {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description,
+            'lesson_id': self.lesson_id,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        if include_questions:
+            data['questions'] = [q.to_dict() for q in self.questions]
+        return data
+
+class QuizQuestion(db.Model):
+    __tablename__ = 'quiz_questions'
+    id = db.Column(db.Integer, primary_key=True)
+    quiz_id = db.Column(db.Integer, db.ForeignKey('quizzes.id', ondelete='CASCADE'), nullable=False)
+    question_text = db.Column(db.Text, nullable=False)
+    choices = db.Column(db.JSON, nullable=False)  # List of choices
+    correct_answer = db.Column(db.String(255), nullable=False)  # Could be index or value
+    explanation = db.Column(db.Text, nullable=True)
+    order = db.Column(db.Integer, nullable=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'quiz_id': self.quiz_id,
+            'question_text': self.question_text,
+            'choices': self.choices,
+            'correct_answer': self.correct_answer,
+            'explanation': self.explanation,
+            'order': self.order,
+        }
+
+class Module(db.Model):
+    __tablename__ = 'modules'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    order = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now())
+    updated_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now(), onupdate=db.func.now())
+
+    lessons = db.relationship('EducationalContent', back_populates='module', lazy=True)
+
+    def to_dict(self, include_lessons=False):
+        data = {
+            'id': self.id,
+            'title': self.title,
+            'description': self.description,
+            'order': self.order,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+        if include_lessons:
+            data['lessons'] = [l.to_dict() for l in self.lessons]
+        return data

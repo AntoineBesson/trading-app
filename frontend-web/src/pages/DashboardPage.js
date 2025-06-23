@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import portfolioService from '../services/portfolioService';
 import contentService from '../services/contentService';
+import NewsService from '../services/newsService';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
 import { getEducationProgress, setEducationProgress } from '../services/educationService';
@@ -74,6 +75,11 @@ export default function DashboardPage() {
   const [loadingContent, setLoadingContent] = useState(true);
   const [eduProgress, setEduProgress] = useState(null);
   const [eduQuiz, setEduQuiz] = useState(null);
+  const [news, setNews] = useState([]);
+  const [newsLoading, setNewsLoading] = useState(true);
+  const [newsError, setNewsError] = useState(null);
+  const [newsModal, setNewsModal] = useState(null);
+  const [newsVisibleCount, setNewsVisibleCount] = useState(3);
   const navigate = useNavigate();
   const { currentUser, isAuthenticated } = useAuth();
 
@@ -108,6 +114,18 @@ export default function DashboardPage() {
       setEduQuiz(JSON.parse(localStorage.getItem('eduQuiz')));
     }
   }, [isAuthenticated]);
+
+  // Fetch news from backend
+  useEffect(() => {
+    setNewsLoading(true);
+    NewsService.getAll()
+      .then(res => {
+        setNews(res.data.news || []);
+        setNewsError(null);
+      })
+      .catch(() => setNewsError('Failed to fetch news'))
+      .finally(() => setNewsLoading(false));
+  }, []);
 
   // Prepare pie chart data
   let pieData = [];
@@ -172,34 +190,57 @@ export default function DashboardPage() {
         {/* News Section */}
         <div style={styles.card}>
           <div style={styles.sectionTitle}>Recent News</div>
-          {/* Placeholder news items */}
-          <div style={styles.newsItem}><b>Market rallies as tech stocks surge</b><br /><span style={{color:'#555'}}>Tech sector leads gains as investors show renewed confidence in AI-driven companies.</span></div>
-          <div style={styles.newsItem}><b>Federal Reserve holds interest rates steady</b><br /><span style={{color:'#555'}}>Analysts expect stable rates to support continued market growth through Q3.</span></div>
-          <div style={styles.newsItem}><b>Oil prices dip amid global supply increase</b><br /><span style={{color:'#555'}}>Energy sector faces volatility as OPEC+ increases output.</span></div>
+          {newsModal && (
+            <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.35)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setNewsModal(null)}>
+              <div style={{ background: '#fff', borderRadius: 12, padding: '2rem', minWidth: 320, maxWidth: 480, boxShadow: '0 4px 32px rgba(0,0,0,0.12)', position: 'relative' }} onClick={e => e.stopPropagation()}>
+                <h2 style={{marginTop:0}}>{newsModal.title}</h2>
+                <div style={{color:'#555', marginBottom:'1.5rem'}}>{newsModal.content}</div>
+                <button style={{...styles.button, marginTop:0}} onClick={() => setNewsModal(null)}>Close</button>
+              </div>
+            </div>
+          )}
+          {newsLoading ? (
+            <div>Loading news...</div>
+          ) : newsError ? (
+            <div style={{color:'red'}}>{newsError}</div>
+          ) : news.length === 0 ? (
+            <div>No news available.</div>
+          ) : (
+            <>
+              {news.slice(0, newsVisibleCount).map((item, idx) => (
+                <button key={item.id} style={{...styles.newsItem, textAlign:'left', width:'100%', cursor:'pointer'}} onClick={() => setNewsModal(item)}>
+                  <b>{item.title}</b><br />
+                  <span style={{color:'#555'}}>{item.preview}</span>
+                </button>
+              ))}
+              {newsVisibleCount < news.length && (
+                <button style={{...styles.button, width:'100%', marginTop:8}} onClick={() => setNewsVisibleCount(newsVisibleCount + 3)}>
+                  Show More
+                </button>
+              )}
+              {newsVisibleCount > 3 && (
+                <button style={{...styles.button, width:'100%', marginTop:8, background:'#e5e7eb', color:'#222'}} onClick={() => setNewsVisibleCount(3)}>
+                  See Less
+                </button>
+              )}
+            </>
+          )}
         </div>
 
         {/* Continue Learning Section */}
         <div style={styles.card}>
           <div style={styles.sectionTitle}>Continue Learning</div>
-          {eduProgress ? (
-            <div>
-              <b>Stock Market:</b> Lesson {eduProgress.stocks?.[0]?.lastIndexOf(true) + 1 || 1}<br />
-              <b>Crypto:</b> Lesson {eduProgress.crypto?.[0]?.lastIndexOf(true) + 1 || 1}
-            </div>
+          {(!eduProgress || (!eduProgress.stocks && !eduProgress.crypto)) ? (
+            <button style={styles.button} onClick={() => navigate('/education')}>Start learning</button>
           ) : (
-            <div>Start your first lesson to track progress!</div>
-          )}
-          <button style={styles.button} onClick={() => navigate(getNextLessonRoute())}>Continue</button>
-          {loadingContent ? (
-            <div>Loading your last content...</div>
-          ) : lastContent ? (
-            <div>
-              <b>{lastContent.title}</b>
-              <div style={{color:'#555', margin:'0.5rem 0 1rem 0'}}>{lastContent.content_type}</div>
-              <button style={styles.button} onClick={() => navigate(`/content/${lastContent.id}`)}>Continue</button>
+            <div style={{ display: 'flex', gap: '1rem', flexDirection: 'row', justifyContent: 'center' }}>
+              <button style={styles.button} onClick={() => navigate('/education?part=stocks')}>
+                Resume Stock Learning
+              </button>
+              <button style={styles.button} onClick={() => navigate('/education?part=crypto')}>
+                Resume Crypto Learning
+              </button>
             </div>
-          ) : (
-            <div>No recent content found. <button style={styles.button} onClick={() => navigate('/content')}>Browse Content</button></div>
           )}
         </div>
 

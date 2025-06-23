@@ -1,7 +1,10 @@
 // frontend-web/src/pages/PortfolioPage.js
 import React, { useState, useEffect } from 'react';
 import portfolioService from '../services/portfolioService';
+import tradeService from '../services/tradeService';
+import assetService from '../services/assetService';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ReferenceDot } from 'recharts';
 
 const styles = {
   background: {
@@ -46,6 +49,17 @@ export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [holdingCharts, setHoldingCharts] = useState({});
+  // Add timeframe selector state for each holding
+  const [timeframes, setTimeframes] = useState({});
+  const TIMEFRAME_OPTIONS = [
+    { label: '24h', value: '1d' },
+    { label: '1M', value: '1m' },
+    { label: '6M', value: '6m' },
+    { label: 'YTD', value: 'ytd' },
+    { label: '1Y', value: '1y' },
+    { label: '3Y', value: '3y' }
+  ];
 
   useEffect(() => {
     const fetchPortfolioData = async () => {
@@ -62,6 +76,30 @@ export default function PortfolioPage() {
     };
     fetchPortfolioData();
   }, []);
+
+  // Fetch price history and trades for each holding and timeframe
+  useEffect(() => {
+    if (!portfolio || !portfolio.holdings) return;
+    portfolio.holdings.forEach(async (holding) => {
+      const symbol = holding.symbol;
+      const tf = timeframes[symbol] || '6m';
+      try {
+        const [historyRes, tradesRes] = await Promise.all([
+          assetService.getAssetHistory(symbol, tf),
+          tradeService.getTrades(symbol)
+        ]);
+        setHoldingCharts(prev => ({
+          ...prev,
+          [symbol]: {
+            history: historyRes.data.history || [],
+            trades: tradesRes.data.trades || []
+          }
+        }));
+      } catch (err) {
+        setHoldingCharts(prev => ({ ...prev, [symbol]: { history: [], trades: [] } }));
+      }
+    });
+  }, [portfolio, timeframes]);
 
   if (loading) {
     return <div style={styles.background}><div style={styles.card}>Loading portfolio...</div></div>;
@@ -127,23 +165,75 @@ export default function PortfolioPage() {
         <div style={styles.section}>
           <h3 style={{marginBottom: '1rem', color: '#333'}}>Holdings</h3>
           {(portfolio.holdings || []).length === 0 && <p>No holdings.</p>}
-          {(portfolio.holdings || []).map((holding, idx) => (
-            <div key={idx} style={{
-              background: '#f8fafc',
-              borderRadius: '10px',
-              padding: '1rem',
-              marginBottom: '1.2rem',
-              boxShadow: '0 1px 4px rgba(99,102,241,0.04)'
-            }}>
-              <h3 style={{margin: 0, color: '#6366f1'}}>{holding.name} ({holding.symbol})</h3>
-              <p style={{margin: '0.3rem 0'}}>Quantity: {holding.quantity}</p>
-              <p style={{margin: '0.3rem 0'}}>Average Purchase Price: ${holding.average_purchase_price}</p>
-              <p style={{margin: '0.3rem 0'}}>Current Price: ${holding.current_price || 'N/A'}</p>
-              <p style={{margin: '0.3rem 0'}}>Current Value: ${holding.current_value || 'N/A'}</p>
-              <p style={{margin: '0.3rem 0'}}>Holding Cost: ${holding.holding_cost || 'N/A'}</p>
-              <p style={{margin: '0.3rem 0'}}>Profit/Loss: ${holding.profit_loss || 'N/A'} ({holding.profit_loss_percent || 'N/A'})</p>
-            </div>
-          ))}
+          {(portfolio.holdings || []).map((holding, idx) => {
+            const chartData = holdingCharts[holding.symbol] || { history: [], trades: [] };
+            const tf = timeframes[holding.symbol] || '6m';
+            return (
+              <div key={idx} style={{
+                background: '#f8fafc',
+                borderRadius: '10px',
+                padding: '1rem',
+                marginBottom: '1.2rem',
+                boxShadow: '0 1px 4px rgba(99,102,241,0.04)'
+              }}>
+                <h3 style={{margin: 0, color: '#6366f1'}}>{holding.name} ({holding.symbol})</h3>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: 10, flexWrap: 'wrap' }}>
+                  {TIMEFRAME_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setTimeframes(prev => ({ ...prev, [holding.symbol]: opt.value }))}
+                      style={{
+                        background: tf === opt.value ? '#2563eb' : '#e0e7ef',
+                        color: tf === opt.value ? '#fff' : '#222',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '6px 16px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        transition: 'background 0.18s',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ width: '100%', height: 220 }}>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={chartData.history} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} domain={['auto', 'auto']} />
+                      <RechartsTooltip />
+                      <Line type="monotone" dataKey="price" stroke="#2563eb" strokeWidth={2} dot={false} />
+                      {/* Buy/Sell markers */}
+                      {chartData.trades.map((trade, i) => (
+                        <ReferenceDot
+                          key={i}
+                          x={(() => {
+                            // Find the closest date in history to the trade timestamp
+                            const t = new Date(trade.timestamp);
+                            let closest = chartData.history[0]?.date;
+                            let minDiff = Math.abs(new Date(chartData.history[0]?.date) - t);
+                            chartData.history.forEach(h => {
+                              const diff = Math.abs(new Date(h.date) - t);
+                              if (diff < minDiff) { minDiff = diff; closest = h.date; }
+                            });
+                            return closest;
+                          })()}
+                          y={parseFloat(trade.price_at_execution)}
+                          r={7}
+                          fill={trade.order_type === 'market_buy' ? '#10b981' : '#e11d48'}
+                          stroke="#fff"
+                          label={{ value: trade.order_type === 'market_buy' ? 'Buy' : 'Sell', position: 'top', fill: trade.order_type === 'market_buy' ? '#10b981' : '#e11d48', fontSize: 11 }}
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            );
+          })}
         </div>
         {/* <pre>{JSON.stringify(portfolio, null, 2)}</pre> */}
       </div>

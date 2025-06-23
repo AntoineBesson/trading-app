@@ -35,7 +35,7 @@ CORS(app, resources={r'/*': {'origins': frontend_urls}}, supports_credentials=Tr
 
 # Initialize Extensions
 # Ensure models.py is correctly structured and in the same directory or accessible via PYTHONPATH
-from models import db, User, EducationalContent, Asset, Trade, PortfolioHolding
+from models import db, User, EducationalContent, Asset, Trade, PortfolioHolding, News, Quiz, QuizQuestion, Module
 db.init_app(app)
 jwt = JWTManager(app)
 
@@ -91,7 +91,12 @@ def register():
         db.session.rollback()
         app.logger.error(f"Error registering user {username}: {str(e)}")
         return jsonify(message="Error creating user on the server"), 500
-    return jsonify(message="User registered successfully", user={'id': new_user.id, 'username': new_user.username, 'email': new_user.email}), 201
+    return jsonify(message="User registered successfully", user={
+        'id': new_user.id,
+        'username': new_user.username,
+        'email': new_user.email,
+        'is_admin': new_user.is_admin
+    }), 201
 
 @app.route('/auth/login', methods=['POST'])
 def login():
@@ -109,7 +114,13 @@ def login():
     if user and user.check_password(password):
         identity_data = {'id': user.id, 'username': user.username}
         access_token = create_access_token(identity=json.dumps(identity_data))
-        return jsonify(access_token=access_token), 200
+        return jsonify(
+            access_token=access_token,
+            id=user.id,
+            username=user.username,
+            email=user.email,
+            is_admin=user.is_admin
+        ), 200
     else:
         return jsonify(message="Invalid username/email or password"), 401
 
@@ -361,7 +372,7 @@ def get_asset_history(symbol):
         elif asset_from_db.asset_type.lower() == 'crypto':
             # Only support daily for crypto for simplicity
             fe = ForeignExchange(key=api_key, output_format='json')
-            from_currency = asset_from_db.symbol[:-3] if asset_from_db.symbol.endswith('USD') else asset_from_db.symbol
+            from_currency = asset_db_object.symbol[:-3] if asset_db_object.symbol.endswith('USD') else asset_db_object.symbol
             to_currency = 'USD'
             data, _ = fe.get_digital_currency_daily(symbol=from_currency, market=to_currency)
             series = data.get('Time Series (Digital Currency Daily)', {})
@@ -565,6 +576,351 @@ def education_progress():
         user.education_quiz = data.get('quiz')
         db.session.commit()
         return jsonify(message='Progress updated'), 200
+
+@app.route('/trades', methods=['GET'])
+@jwt_required()
+def get_trades():
+    """
+    Returns all trades for the current user, optionally filtered by asset symbol.
+    Query param: asset (optional, symbol)
+    """
+    raw_identity = get_jwt_identity()
+    current_user_identity_dict = json.loads(raw_identity)
+    user_id = current_user_identity_dict['id']
+
+    asset_symbol = request.args.get('asset')
+    query = Trade.query.filter_by(user_id=user_id)
+    if asset_symbol:
+        asset = Asset.query.filter_by(symbol=asset_symbol.upper()).first()
+        if not asset:
+            return jsonify(message=f"Asset {asset_symbol} not found."), 404
+        query = query.filter_by(asset_id=asset.id)
+    trades = query.order_by(Trade.timestamp.asc()).all()
+    return jsonify(trades=[t.to_dict() for t in trades]), 200
+
+# Admin required decorator
+def admin_required(fn):
+    from functools import wraps
+    @wraps(fn)
+    @jwt_required()
+    def wrapper(*args, **kwargs):
+        raw_identity = get_jwt_identity()
+        current_user_identity_dict = json.loads(raw_identity)
+        user_id = current_user_identity_dict['id']
+        user = User.query.get(user_id)
+        if not user or not user.is_admin:
+            return jsonify(message="Admin privileges required."), 403
+        return fn(*args, **kwargs)
+    return wrapper
+
+# Example: Admin endpoint to set user cash balance
+@app.route('/admin/set-cash', methods=['POST'])
+@admin_required
+def admin_set_cash():
+    data = request.get_json()
+    username = data.get('username')
+    amount = data.get('amount')
+    if not username or amount is None:
+        return jsonify(message="Username and amount required."), 400
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify(message="User not found."), 404
+    try:
+        user.cash_balance = Decimal(str(amount))
+        db.session.commit()
+        return jsonify(message=f"Set cash for {username} to {amount}"), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(message=f"Error: {str(e)}"), 500
+
+@app.route('/admin/news', methods=['GET'])
+@admin_required
+def admin_get_news():
+    news = News.query.order_by(News.created_at.desc()).all()
+    return jsonify(news=[n.to_dict() for n in news]), 200
+
+@app.route('/admin/news', methods=['POST'])
+@admin_required
+def admin_add_news():
+    data = request.get_json()
+    title = data.get('title')
+    preview = data.get('preview')
+    content = data.get('content')
+    if not title or not preview or not content:
+        return jsonify(message="All fields required."), 400
+    news = News(title=title, preview=preview, content=content)
+    db.session.add(news)
+    db.session.commit()
+    return jsonify(news=news.to_dict()), 201
+
+@app.route('/admin/news/<int:news_id>', methods=['PUT'])
+@admin_required
+def admin_edit_news(news_id):
+    news = News.query.get(news_id)
+    if not news:
+        return jsonify(message="News not found."), 404
+    data = request.get_json()
+    news.title = data.get('title', news.title)
+    news.preview = data.get('preview', news.preview)
+    news.content = data.get('content', news.content)
+    db.session.commit()
+    return jsonify(news=news.to_dict()), 200
+
+@app.route('/admin/news/<int:news_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_news(news_id):
+    news = News.query.get(news_id)
+    if not news:
+        return jsonify(message="News not found."), 404
+    db.session.delete(news)
+    db.session.commit()
+    return jsonify(message="Deleted."), 200
+
+@app.route('/admin/lessons', methods=['GET'])
+@admin_required
+def admin_get_lessons():
+    lessons = EducationalContent.query.order_by(EducationalContent.id.asc()).all()
+    return jsonify(lessons=[l.to_dict() for l in lessons]), 200
+
+@app.route('/admin/lessons', methods=['POST'])
+@admin_required
+def admin_add_lesson():
+    data = request.get_json()
+    title = data.get('title')
+    content_type = data.get('content_type')
+    body = data.get('body')
+    video_url = data.get('video_url')
+    author_id = data.get('author_id')
+    if not title or not content_type:
+        return jsonify(message="Title and content_type required."), 400
+    lesson = EducationalContent(title=title, content_type=content_type, body=body, video_url=video_url, author_id=author_id)
+    db.session.add(lesson)
+    db.session.commit()
+    return jsonify(lesson=lesson.to_dict()), 201
+
+@app.route('/admin/lessons/<int:lesson_id>', methods=['PUT'])
+@admin_required
+def admin_edit_lesson(lesson_id):
+    lesson = EducationalContent.query.get(lesson_id)
+    if not lesson:
+        return jsonify(message="Lesson not found."), 404
+    data = request.get_json()
+    lesson.title = data.get('title', lesson.title)
+    lesson.content_type = data.get('content_type', lesson.content_type)
+    lesson.body = data.get('body', lesson.body)
+    lesson.video_url = data.get('video_url', lesson.video_url)
+    db.session.commit()
+    return jsonify(lesson=lesson.to_dict()), 200
+
+@app.route('/admin/lessons/<int:lesson_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_lesson(lesson_id):
+    lesson = EducationalContent.query.get(lesson_id)
+    if not lesson:
+        return jsonify(message="Lesson not found."), 404
+    db.session.delete(lesson)
+    db.session.commit()
+    return jsonify(message="Deleted."), 200
+
+@app.route('/admin/users', methods=['GET'])
+@admin_required
+def admin_list_users():
+    users = User.query.all()
+    return jsonify(users=[{
+        'id': u.id, 'username': u.username, 'email': u.email,
+        'is_admin': u.is_admin, 'cash_balance': str(u.cash_balance)
+    } for u in users]), 200
+
+@app.route('/admin/users/<int:user_id>/set-cash', methods=['POST'])
+@admin_required
+def admin_set_user_cash(user_id):
+    data = request.get_json()
+    amount = data.get('amount')
+    user = User.query.get(user_id)
+    if not user or amount is None:
+        return jsonify(message="User or amount missing."), 400
+    user.cash_balance = Decimal(str(amount))
+    db.session.commit()
+    return jsonify(message="Cash updated."), 200
+
+@app.route('/admin/users/<int:user_id>/set-admin', methods=['POST'])
+@admin_required
+def admin_set_user_admin(user_id):
+    data = request.get_json()
+    is_admin = data.get('is_admin', True)
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify(message="User not found."), 404
+    user.is_admin = bool(is_admin)
+    db.session.commit()
+    return jsonify(message="Admin status updated."), 200
+
+# --- Admin Quiz Management ---
+@app.route('/admin/quizzes', methods=['GET'])
+@admin_required
+def admin_list_quizzes():
+    lesson_id = request.args.get('lesson_id')
+    query = Quiz.query
+    if lesson_id:
+        query = query.filter_by(lesson_id=lesson_id)
+    quizzes = query.order_by(Quiz.id.asc()).all()
+    return jsonify(quizzes=[q.to_dict(include_questions=True) for q in quizzes]), 200
+
+@app.route('/admin/quizzes', methods=['POST'])
+@admin_required
+def admin_create_quiz():
+    data = request.get_json()
+    title = data.get('title')
+    description = data.get('description')
+    lesson_id = data.get('lesson_id')
+    if not title:
+        return jsonify(message="Title is required."), 400
+    quiz = Quiz(title=title, description=description, lesson_id=lesson_id)
+    db.session.add(quiz)
+    db.session.commit()
+    return jsonify(quiz=quiz.to_dict()), 201
+
+@app.route('/admin/quizzes/<int:quiz_id>', methods=['PUT'])
+@admin_required
+def admin_edit_quiz(quiz_id):
+    quiz = Quiz.query.get(quiz_id)
+    if not quiz:
+        return jsonify(message="Quiz not found."), 404
+    data = request.get_json()
+    quiz.title = data.get('title', quiz.title)
+    quiz.description = data.get('description', quiz.description)
+    quiz.lesson_id = data.get('lesson_id', quiz.lesson_id)
+    db.session.commit()
+    return jsonify(quiz=quiz.to_dict()), 200
+
+@app.route('/admin/quizzes/<int:quiz_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_quiz(quiz_id):
+    quiz = Quiz.query.get(quiz_id)
+    if not quiz:
+        return jsonify(message="Quiz not found."), 404
+    db.session.delete(quiz)
+    db.session.commit()
+    return jsonify(message="Deleted."), 200
+
+# --- Admin Quiz Question Management ---
+@app.route('/admin/quizzes/<int:quiz_id>/questions', methods=['GET'])
+@admin_required
+def admin_list_quiz_questions(quiz_id):
+    quiz = Quiz.query.get(quiz_id)
+    if not quiz:
+        return jsonify(message="Quiz not found."), 404
+    return jsonify(questions=[q.to_dict() for q in quiz.questions]), 200
+
+@app.route('/admin/quizzes/<int:quiz_id>/questions', methods=['POST'])
+@admin_required
+def admin_add_quiz_question(quiz_id):
+    quiz = Quiz.query.get(quiz_id)
+    if not quiz:
+        return jsonify(message="Quiz not found."), 404
+    data = request.get_json()
+    question_text = data.get('question_text')
+    choices = data.get('choices')
+    correct_answer = data.get('correct_answer')
+    explanation = data.get('explanation')
+    order = data.get('order')
+    if not question_text or not choices or correct_answer is None:
+        return jsonify(message="Missing required fields."), 400
+    question = QuizQuestion(
+        quiz_id=quiz_id,
+        question_text=question_text,
+        choices=choices,
+        correct_answer=correct_answer,
+        explanation=explanation,
+        order=order
+    )
+    db.session.add(question)
+    db.session.commit()
+    return jsonify(question=question.to_dict()), 201
+
+@app.route('/admin/quizzes/<int:quiz_id>/questions/<int:question_id>', methods=['PUT'])
+@admin_required
+def admin_edit_quiz_question(quiz_id, question_id):
+    question = QuizQuestion.query.filter_by(id=question_id, quiz_id=quiz_id).first()
+    if not question:
+        return jsonify(message="Question not found."), 404
+    data = request.get_json()
+    question.question_text = data.get('question_text', question.question_text)
+    question.choices = data.get('choices', question.choices)
+    question.correct_answer = data.get('correct_answer', question.correct_answer)
+    question.explanation = data.get('explanation', question.explanation)
+    question.order = data.get('order', question.order)
+    db.session.commit()
+    return jsonify(question=question.to_dict()), 200
+
+@app.route('/admin/quizzes/<int:quiz_id>/questions/<int:question_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_quiz_question(quiz_id, question_id):
+    question = QuizQuestion.query.filter_by(id=question_id, quiz_id=quiz_id).first()
+    if not question:
+        return jsonify(message="Question not found."), 404
+    db.session.delete(question)
+    db.session.commit()
+    return jsonify(message="Deleted."), 200
+
+# --- Admin Module Management ---
+@app.route('/admin/modules', methods=['GET'])
+@admin_required
+def admin_list_modules():
+    modules = Module.query.order_by(Module.order.asc().nullslast(), Module.id.asc()).all()
+    return jsonify(modules=[m.to_dict(include_lessons=True) for m in modules]), 200
+
+@app.route('/admin/modules', methods=['POST'])
+@admin_required
+def admin_create_module():
+    data = request.get_json()
+    title = data.get('title')
+    description = data.get('description')
+    order = data.get('order')
+    if not title:
+        return jsonify(message="Title is required."), 400
+    module = Module(title=title, description=description, order=order)
+    db.session.add(module)
+    db.session.commit()
+    return jsonify(module=module.to_dict()), 201
+
+@app.route('/admin/modules/<int:module_id>', methods=['PUT'])
+@admin_required
+def admin_edit_module(module_id):
+    module = Module.query.get(module_id)
+    if not module:
+        return jsonify(message="Module not found."), 404
+    data = request.get_json()
+    module.title = data.get('title', module.title)
+    module.description = data.get('description', module.description)
+    module.order = data.get('order', module.order)
+    db.session.commit()
+    return jsonify(module=module.to_dict()), 200
+
+@app.route('/admin/modules/<int:module_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_module(module_id):
+    module = Module.query.get(module_id)
+    if not module:
+        return jsonify(message="Module not found."), 404
+    db.session.delete(module)
+    db.session.commit()
+    return jsonify(message="Deleted."), 200
+
+# --- Admin Lesson Ordering/Assignment ---
+@app.route('/admin/lessons/<int:lesson_id>/set-module', methods=['POST'])
+@admin_required
+def admin_set_lesson_module(lesson_id):
+    data = request.get_json()
+    module_id = data.get('module_id')
+    order = data.get('order')
+    lesson = EducationalContent.query.get(lesson_id)
+    if not lesson:
+        return jsonify(message="Lesson not found."), 404
+    lesson.module_id = module_id
+    lesson.order = order
+    db.session.commit()
+    return jsonify(lesson=lesson.to_dict()), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))

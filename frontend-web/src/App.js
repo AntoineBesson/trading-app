@@ -12,6 +12,7 @@ import TradingPage from './pages/TradingPage';
 import PortfolioPage from './pages/PortfolioPage';
 import NotFoundPage from './pages/NotFoundPage';
 import PrivateRoute from './components/PrivateRoute'; // Import PrivateRoute
+import AdminPanelPage from './pages/AdminPanelPage';
 import './App.css';
 
 const navStyles = {
@@ -66,6 +67,7 @@ const navStyles = {
 const Navigation = () => {
   const { isAuthenticated, logout, currentUser } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = !!currentUser?.is_admin;
 
   const handleLogout = () => {
     logout();
@@ -82,6 +84,9 @@ const Navigation = () => {
             <li style={navStyles.li}><Link to="/content" style={navStyles.link}>Content</Link></li>
             <li style={navStyles.li}><Link to="/trade" style={navStyles.link}>Trade</Link></li>
             <li style={navStyles.li}><Link to="/portfolio" style={navStyles.link}>Portfolio</Link></li>
+            {isAdmin && (
+              <li style={navStyles.li}><Link to="/admin" style={navStyles.link}>Admin Panel</Link></li>
+            )}
             <li style={navStyles.li}>
               <button onClick={handleLogout} style={navStyles.button}>
                 Logout ({currentUser?.username || currentUser?.access_token?.substring(0,10) })
@@ -118,6 +123,7 @@ function App() {
             <Route path="/content/:contentId" element={<ContentDetailPage />} />
             <Route path="/trade" element={<TradingPage />} />
             <Route path="/portfolio" element={<PortfolioPage />} />
+            <Route path="/admin" element={<AdminPanelPage />} />
           </Route>
 
           <Route path="*" element={<NotFoundPage />} />

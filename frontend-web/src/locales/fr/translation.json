@@ -1,0 +1,19 @@
+{
+  "welcome": "Bienvenue",
+  "recent_news": "Actualités récentes",
+  "show_more": "Voir plus",
+  "see_less": "Voir moins",
+  "continue_learning": "Continuer l'apprentissage",
+  "start_learning": "Commencer l'apprentissage",
+  "resume_stock_learning": "Reprendre l'apprentissage des actions",
+  "resume_crypto_learning": "Reprendre l'apprentissage des cryptos",
+  "your_portfolio_overview": "Aperçu de votre portefeuille",
+  "total_value": "Valeur totale :",
+  "total_cash": "Liquidités totales :",
+  "start_trading": "Commencer à trader",
+  "loading_news": "Chargement des actualités...",
+  "no_news": "Aucune actualité disponible.",
+  "loading_portfolio": "Chargement du portefeuille...",
+  "no_portfolio": "Aucune donnée de portefeuille disponible.",
+  "close": "Fermer"
+}

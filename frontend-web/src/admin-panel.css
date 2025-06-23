@@ -1,0 +1,107 @@
+.admin-panel-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 4px 32px rgba(37,99,235,0.08);
+  padding: 2.5rem 2rem 2rem 2rem;
+  min-height: 80vh;
+}
+.admin-tabs {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+.admin-tabs button {
+  background: #f3f6fd;
+  border: none;
+  padding: 0.7rem 1.5rem;
+  border-radius: 8px 8px 0 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #2563eb;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+}
+.admin-tabs button.active, .admin-tabs button:hover {
+  background: #2563eb;
+  color: #fff;
+}
+.admin-section {
+  background: #f9fbff;
+  border-radius: 0 0 12px 12px;
+  padding: 2rem 1.5rem 1.5rem 1.5rem;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.04);
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.admin-table th, .admin-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+.admin-table th {
+  background: #f3f6fd;
+  font-weight: 600;
+  color: #2563eb;
+}
+.admin-table tr:last-child td {
+  border-bottom: none;
+}
+.admin-btn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1.1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  margin-right: 0.5rem;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.admin-btn:hover {
+  background: #1e40af;
+}
+.admin-btn.danger {
+  background: #ef4444;
+}
+.admin-btn.danger:hover {
+  background: #b91c1c;
+}
+.admin-form {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.06);
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+  max-width: 500px;
+}
+.admin-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #2563eb;
+}
+.admin-form input, .admin-form textarea, .admin-form select {
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 1.2rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 1rem;
+  background: #f9fbff;
+}
+.admin-form textarea {
+  min-height: 80px;
+}
+.admin-form-actions {
+  display: flex;
+  gap: 1rem;
+}

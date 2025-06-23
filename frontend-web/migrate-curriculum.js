@@ -1,7 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import { getEducationProgress, setEducationProgress } from '../services/educationService';
-import { useLocation, useNavigate } from 'react-router-dom';
+// migrate-curriculum.js
+// Usage: node migrate-curriculum.js
+// Make sure to set your admin credentials and API URL below.
+
+const axios = require('axios');
+
+const API_URL = 'http://localhost:5000'; // Change if needed
+const ADMIN_USERNAME = 'adminuser'; // Set your admin username
+const ADMIN_PASSWORD = 'xoxo'; // Set your admin password
 
 // Curriculum data: two modules, each with lessons and quizzes
 const curriculumData = {
@@ -569,339 +574,75 @@ const curriculumData = {
   }
 };
 
-const NAV_BLUE = '#2563eb';
-const styles = {
-  background: {
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #f8fafc 0%, #e0e7ef 100%)',
-    padding: '2.5rem 0',
-  },
-  container: {
-    maxWidth: '1100px',
-    margin: '0 auto',
-    display: 'flex',
-    flexDirection: 'row',
-    gap: '2rem',
-    alignItems: 'flex-start',
-  },
-  sidebar: {
-    minWidth: '220px',
-    background: '#fff',
-    borderRadius: '18px',
-    boxShadow: '0 4px 32px rgba(0,0,0,0.08)',
-    padding: '1.5rem 1rem',
-    position: 'sticky',
-    top: '2rem',
-    height: 'fit-content',
-  },
-  sidebarTitle: {
-    fontSize: '1.2rem',
-    fontWeight: 700,
-    marginBottom: '1rem',
-    color: '#222',
-  },
-  moduleLink: (active) => ({
-    display: 'block',
-    padding: '0.7rem 1rem',
-    borderRadius: '8px',
-    marginBottom: '0.5rem',
-    background: active ? '#E0EFFF' : 'none',
-    color: active ? NAV_BLUE : '#444',
-    fontWeight: active ? 600 : 500,
-    cursor: 'pointer',
-    border: 'none',
-    textAlign: 'left',
-    width: '100%',
-    outline: 'none',
-    transition: 'background 0.18s',
-  }),
-  main: {
-    flex: 1,
-    minWidth: 0,
-  },
-  card: {
-    background: '#fff',
-    borderRadius: '18px',
-    boxShadow: '0 4px 32px rgba(0,0,0,0.08)',
-    padding: '2rem',
-    marginBottom: '2rem',
-  },
-  lessonToggle: (locked) => ({
-    width: '100%',
-    textAlign: 'left',
-    padding: '1rem',
-    fontWeight: 600,
-    fontSize: '1.1rem',
-    background: locked ? '#f3f4f6' : 'none',
-    border: 'none',
-    borderBottom: '1px solid #f1f1f1',
-    cursor: locked ? 'not-allowed' : 'pointer',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    outline: 'none',
-    color: locked ? '#aaa' : '#222',
-  }),
-  lessonContent: (open) => ({
-    maxHeight: open ? '1000px' : '0',
-    overflow: 'hidden',
-    transition: 'max-height 0.5s ease-in-out',
-    padding: open ? '1rem' : '0 1rem',
-    color: '#444',
-    background: '#f8fafc',
-    borderRadius: '0 0 12px 12px',
-    borderTop: open ? '1px solid #f1f1f1' : 'none',
-  }),
-  quiz: {
-    marginTop: '1.5rem',
-    padding: '1rem',
-    background: '#e0efff',
-    borderRadius: '10px',
-  },
-  quizOption: (selected, correct, show, isIncorrect) => ({
-    display: 'block',
-    width: '100%',
-    textAlign: 'left',
-    padding: '0.7rem 1rem',
-    margin: '0.3rem 0',
-    borderRadius: '8px',
-    border: 'none',
-    background: show
-      ? (correct
-          ? '#34d399'
-          : isIncorrect
-            ? '#f87171'
-            : selected
-              ? '#f87171'
-              : '#fff')
-      : '#fff',
-    color: show
-      ? (correct || isIncorrect || selected ? '#fff' : '#222')
-      : '#222',
-    fontWeight: 500,
-    cursor: show ? 'default' : 'pointer',
-    outline: 'none',
-    transition: 'background 0.18s',
-  }),
-  lockIcon: {
-    marginLeft: '0.5rem',
-    color: '#aaa',
-    fontSize: '1.1rem',
-  }
-};
-
-export default function EducationPage() {
-  const [currentPart, setCurrentPart] = useState('stocks');
-  const [currentModule, setCurrentModule] = useState(curriculumData.stocks.modules[0].id);
-  const [openLessons, setOpenLessons] = useState({});
-
-  const [lessonProgress, setLessonProgress] = useState({
-    stocks: curriculumData.stocks.modules.map((mod) => mod.lessons.map((_, i) => i === 0)),
-    crypto: curriculumData.crypto.modules.map((mod) => mod.lessons.map((_, i) => i === 0)),
+async function login() {
+  const res = await axios.post(`${API_URL}/auth/login`, {
+    username_or_email: ADMIN_USERNAME,
+    password: ADMIN_PASSWORD,
   });
+  return res.data.access_token;
+}
 
-  const [quizState, setQuizState] = useState({});
+async function createModule(token, module) {
+  const res = await axios.post(`${API_URL}/admin/modules`, {
+    title: module.title,
+    description: module.intro || '',
+    order: module.id || null,
+  }, { headers: { Authorization: `Bearer ${token}` } });
+  return res.data.module.id;
+}
 
-  const { isAuthenticated } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
+async function createLesson(token, lesson, moduleId, order) {
+  const res = await axios.post(`${API_URL}/admin/lessons`, {
+    title: lesson.title,
+    content_type: 'article',
+    body: lesson.content,
+    video_url: '',
+    module_id: moduleId,
+    order: order,
+  }, { headers: { Authorization: `Bearer ${token}` } });
+  return res.data.lesson.id;
+}
 
-  // Add a loading state for progress/quiz
-  const [progressLoaded, setProgressLoaded] = useState(false);
+async function createQuiz(token, lessonId, quiz) {
+  // Create the quiz for the lesson
+  const quizRes = await axios.post(`${API_URL}/admin/quizzes`, {
+    lesson_id: lessonId,
+    title: quiz.question,
+    description: '',
+    order: 1
+  }, { headers: { Authorization: `Bearer ${token}` } });
+  const quizId = quizRes.data.quiz.id;
 
-  // Backend sync: load on mount if authenticated
-  useEffect(() => {
-    setProgressLoaded(false);
-    if (isAuthenticated) {
-      getEducationProgress().then(res => {
-        if (res.data.progress) setLessonProgress(res.data.progress);
-        if (res.data.quiz) setQuizState(res.data.quiz);
-        // Update localStorage for offline fallback
-        localStorage.setItem('eduProgress', JSON.stringify(res.data.progress));
-        localStorage.setItem('eduQuiz', JSON.stringify(res.data.quiz));
-        setProgressLoaded(true);
-      }).catch(() => {
-        setProgressLoaded(true);
-      });
-    } else {
-      const savedProgress = JSON.parse(localStorage.getItem('eduProgress'));
-      const savedQuiz = JSON.parse(localStorage.getItem('eduQuiz'));
-      if (savedProgress) setLessonProgress(savedProgress);
-      if (savedQuiz) setQuizState(savedQuiz);
-      setProgressLoaded(true);
-    }
-  }, [isAuthenticated]);
+  // Create the quiz question (correct_answer must be the value, not the index)
+  await axios.post(`${API_URL}/admin/quizzes/${quizId}/questions`, {
+    question_text: quiz.question,
+    choices: quiz.options,
+    correct_answer: quiz.options[quiz.answer],
+    explanation: '',
+    order: 1
+  }, { headers: { Authorization: `Bearer ${token}` } });
+}
 
-  // Save to backend/localStorage on every change
-  useEffect(() => {
-    if (isAuthenticated) {
-      setEducationProgress(lessonProgress, quizState);
-    }
-    localStorage.setItem('eduProgress', JSON.stringify(lessonProgress));
-    localStorage.setItem('eduQuiz', JSON.stringify(quizState));
-  }, [lessonProgress, quizState, isAuthenticated]);
-
-  // Parse query params for part/module/lesson, but only after progress is loaded
-  useEffect(() => {
-    if (!progressLoaded) return;
-    const params = new URLSearchParams(location.search);
-    const part = params.get('part');
-    const moduleId = params.get('module');
-    const lessonIdx = params.get('lesson');
-    if (part && curriculumData[part]) {
-      setCurrentPart(part);
-      if (moduleId) {
-        const modIdNum = Number(moduleId);
-        setCurrentModule(modIdNum);
-        if (lessonIdx !== null && !isNaN(Number(lessonIdx))) {
-          // Open the lesson if it's unlocked
-          const modIdx = curriculumData[part].modules.findIndex(m => m.id === modIdNum);
-          if (modIdx !== -1 && lessonProgress[part]?.[modIdx]?.[Number(lessonIdx)]) {
-            setOpenLessons({ [`${part}-${modIdNum}-${lessonIdx}`]: true });
+async function run() {
+  try {
+    const token = await login();
+    for (const subjectKey of Object.keys(curriculumData)) {
+      const subject = curriculumData[subjectKey];
+      for (const module of subject.modules) {
+        const moduleId = await createModule(token, module);
+        let lessonOrder = 1;
+        for (const lesson of module.lessons) {
+          const lessonId = await createLesson(token, lesson, moduleId, lessonOrder++);
+          if (lesson.quiz) {
+            await createQuiz(token, lessonId, lesson.quiz);
           }
         }
       }
     }
-  }, [location.search, lessonProgress, progressLoaded]);
-
-  const handlePartClick = (part) => {
-    setCurrentPart(part);
-    const firstModuleId = curriculumData[part].modules[0].id;
-    setCurrentModule(firstModuleId);
-    setOpenLessons({});
-  };
-
-  const handleModuleClick = (id) => {
-    setCurrentModule(id);
-    setOpenLessons({});
-  };
-
-  const handleLessonToggle = (lessonKey, locked) => {
-    if (locked) return;
-    setOpenLessons((prev) => ({
-      ...prev,
-      [lessonKey]: !prev[lessonKey]
-    }));
-  };
-
-  const handleQuizSelect = (lessonKey, lessonIdx, optionIdx) => {
-    // Only lock if correct; allow retry if incorrect
-    const activeModule = curriculumData[currentPart].modules.find(m => m.id === currentModule);
-    const activeModuleIdx = curriculumData[currentPart].modules.findIndex(m => m.id === currentModule);
-    const correct = activeModule.lessons[lessonIdx].quiz.answer === optionIdx;
-    setQuizState((prev) => ({
-      ...prev,
-      [lessonKey]: { selected: optionIdx, answered: correct, correct }
-    }));
-    if (correct) {
-      setLessonProgress((prev) => {
-        const newProgress = { ...prev };
-        const partProgress = [...newProgress[currentPart]];
-        const moduleProgress = [...partProgress[activeModuleIdx]];
-        if (lessonIdx + 1 < moduleProgress.length) {
-          moduleProgress[lessonIdx + 1] = true;
-        }
-        partProgress[activeModuleIdx] = moduleProgress;
-        newProgress[currentPart] = partProgress;
-        return newProgress;
-      });
-    }
-  };
-
-  const activePartData = curriculumData[currentPart];
-  const activeModule = activePartData.modules.find(m => m.id === currentModule);
-  const activeModuleIdx = activePartData.modules.findIndex(m => m.id === currentModule);
-
-  // Render nothing until progress is loaded
-  if (!progressLoaded) return <div style={{padding:'2rem'}}>Loading your progress...</div>;
-
-  return (
-    <div style={styles.background}>
-      <div style={styles.container}>
-        <aside style={styles.sidebar}>
-          <div style={styles.sidebarTitle}>Curriculum</div>
-          <button
-            style={styles.moduleLink(currentPart === 'stocks')}
-            onClick={() => handlePartClick('stocks')}
-          >📈 Stock Market</button>
-          <button
-            style={styles.moduleLink(currentPart === 'crypto')}
-            onClick={() => handlePartClick('crypto')}
-          >🪙 Cryptocurrency</button>
-          <hr style={{margin: '1rem 0', borderColor: '#f1f1f1'}} />
-          <div style={styles.sidebarTitle}>Modules</div>
-          {activePartData.modules.map(module => (
-            <button
-              key={module.id}
-              style={styles.moduleLink(currentModule === module.id)}
-              onClick={() => handleModuleClick(module.id)}
-            >
-              {module.title}
-            </button>
-          ))}
-        </aside>
-        
-        <main style={styles.main}>
-          {activeModule && (
-            <div style={styles.card}>
-              <h2 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '0.5rem', color: '#222' }}>{activeModule.title}</h2>
-              <p style={{ color: '#555', marginBottom: '1.5rem' }} dangerouslySetInnerHTML={{ __html: activeModule.intro }}></p>
-              <div>
-                {activeModule.lessons.map((lesson, idx) => {
-                  const lessonKey = `${currentPart}-${activeModule.id}-${idx}`;
-                  const locked = !lessonProgress[currentPart][activeModuleIdx][idx];
-                  const open = !!openLessons[lessonKey];
-                  const quiz = lesson.quiz;
-                  const quizResult = quizState[lessonKey];
-                  return (
-                    <div key={lessonKey} style={{ marginBottom: '1.2rem', border: '1px solid #f1f1f1', borderRadius: '12px', overflow: 'hidden', opacity: locked ? 0.6 : 1 }}>
-                      <button style={styles.lessonToggle(locked)} onClick={() => handleLessonToggle(lessonKey, locked)}>
-                        <span>{lesson.title}</span>
-                        {locked ? <span style={styles.lockIcon}>🔒</span> : <span style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>}
-                      </button>
-                      <div style={styles.lessonContent(open)}>
-                        {/* Hide lesson content when quiz is being taken (i.e., after any option is selected) */}
-                        {!(quizResult && quizResult.selected !== undefined) && (
-                          <div dangerouslySetInnerHTML={{ __html: lesson.content }} />
-                        )}
-                        {quiz && (
-                          <div style={styles.quiz}>
-                            <div style={{ fontWeight: 600, marginBottom: '0.7rem' }}>{quiz.question}</div>
-                            {quiz.options.map((opt, oidx) => (
-                              <button
-                                key={oidx}
-                                style={styles.quizOption(
-                                  quizResult?.selected === oidx,
-                                  quiz.answer === oidx,
-                                  quizResult?.answered || quizResult?.selected !== undefined,
-                                  quizResult && quizResult.selected === oidx && quizResult.selected !== quiz.answer // highlight incorrect
-                                )}
-                                onClick={() => handleQuizSelect(lessonKey, idx, oidx)}
-                                disabled={quizResult?.answered && quizResult?.correct}
-                              >
-                                {opt}
-                              </button>
-                            ))}
-                            {quizResult && (
-                              <div style={{ marginTop: '0.7rem', color: quizResult.correct ? '#34d399' : '#f87171', fontWeight: 600 }}>
-                                {quizResult.answered && quizResult.correct
-                                  ? 'Correct! Next lesson unlocked.'
-                                  : quizResult.selected !== undefined
-                                    ? 'Incorrect. Please review the lesson and try again.'
-                                    : ''}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
-    </div>
-  );
+    console.log('Migration complete!');
+  } catch (err) {
+    console.error('Migration failed:', err.response?.data || err.message);
+  }
 }
+
+run();

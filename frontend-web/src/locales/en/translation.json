@@ -1,0 +1,19 @@
+{
+  "welcome": "Welcome",
+  "recent_news": "Recent News",
+  "show_more": "Show More",
+  "see_less": "See Less",
+  "continue_learning": "Continue Learning",
+  "start_learning": "Start learning",
+  "resume_stock_learning": "Resume Stock Learning",
+  "resume_crypto_learning": "Resume Crypto Learning",
+  "your_portfolio_overview": "Your Portfolio Overview",
+  "total_value": "Total Value:",
+  "total_cash": "Total Cash:",
+  "start_trading": "Start Trading",
+  "loading_news": "Loading news...",
+  "no_news": "No news available.",
+  "loading_portfolio": "Loading portfolio...",
+  "no_portfolio": "No portfolio data available.",
+  "close": "Close"
+}

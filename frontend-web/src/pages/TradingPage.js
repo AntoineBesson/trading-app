@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import assetService from '../services/assetService';
+import portfolioService from '../services/portfolioService';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 // Basic inline styles
@@ -60,6 +61,7 @@ export default function TradingPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
   const [timeframe, setTimeframe] = useState('1d'); // '1d', '1m', '6m', 'ytd', '1y', '3y'
+  const [cashBalance, setCashBalance] = useState(null);
 
   // Fetch available assets on component mount
   useEffect(() => {
@@ -127,6 +129,17 @@ export default function TradingPage() {
       .finally(() => setHistoryLoading(false));
   }, [selectedAssetSymbol, timeframe]);
 
+  // Fetch cash balance (from portfolio summary)
+  const fetchCashBalance = useCallback(() => {
+    portfolioService.getPortfolio().then(res => {
+      setCashBalance(res.data?.summary?.user_cash_balance || null);
+    }).catch(() => setCashBalance(null));
+  }, []);
+
+  useEffect(() => {
+    fetchCashBalance();
+  }, [fetchCashBalance]);
+
   const handleAssetChange = (e) => {
     setSelectedAssetSymbol(e.target.value);
   };
@@ -153,7 +166,7 @@ export default function TradingPage() {
       const response = await assetService.placeOrder(selectedAssetSymbol, orderType, quantity);
       setFormSuccess(response.data.message || 'Order placed successfully!');
       setQuantity('');
-      // Consider fetching portfolio/balance update here or rely on global state management
+      fetchCashBalance(); // Update cash after trade
     } catch (err) {
       setFormError(err.response?.data?.message || 'Failed to place order.');
     }
@@ -167,6 +180,11 @@ export default function TradingPage() {
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         <div style={{ background: '#fff', borderRadius: '18px', boxShadow: '0 4px 32px rgba(0,0,0,0.08)', padding: '2rem', marginBottom: '2rem' }}>
           <h1 style={{ fontSize: '2rem', fontWeight: 700, color: '#222', marginBottom: '1.5rem' }}>Trade Assets</h1>
+          {cashBalance !== null && (
+            <div style={{ marginBottom: '1.5rem', fontWeight: 600, color: '#2563eb', fontSize: '1.15rem' }}>
+              Cash Available: ${parseFloat(cashBalance).toFixed(2)}
+            </div>
+          )}
 
           <div style={{ marginBottom: '2.5rem' }}>
             <form onSubmit={handleSubmitOrder} style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'flex-end' }}>

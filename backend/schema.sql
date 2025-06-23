@@ -63,6 +63,41 @@ CREATE TABLE portfolio_holdings (
     PRIMARY KEY (user_id, asset_id) -- Composite primary key
 );
 
+-- Quizzes table
+CREATE TABLE quizzes (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    lesson_id INTEGER REFERENCES educational_content(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Quiz Questions table
+CREATE TABLE quiz_questions (
+    id SERIAL PRIMARY KEY,
+    quiz_id INTEGER REFERENCES quizzes(id) ON DELETE CASCADE NOT NULL,
+    question_text TEXT NOT NULL,
+    choices JSON NOT NULL, -- List of choices
+    correct_answer VARCHAR(255) NOT NULL, -- Could be index or value
+    explanation TEXT,
+    "order" INTEGER
+);
+
+-- Modules table
+CREATE TABLE modules (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    "order" INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add module_id and order to educational_content
+ALTER TABLE educational_content ADD COLUMN module_id INTEGER REFERENCES modules(id) ON DELETE SET NULL;
+ALTER TABLE educational_content ADD COLUMN "order" INTEGER;
+
 -- Trigger to automatically update 'updated_at' timestamp for educational_content
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
