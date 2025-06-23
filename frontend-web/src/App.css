@@ -5,29 +5,42 @@ body {
   background-color: #f4f4f4;
 }
 
+nav {
+  background: #2563eb !important;
+  border-radius: 0 0 18px 18px;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.08);
+  margin-bottom: 2.5rem;
+}
+
 nav ul {
   list-style-type: none;
   padding: 0;
   margin: 0;
-  display: flex; /* Basic horizontal nav */
-  background-color: #333;
-  overflow: hidden; /* Clearfix */
+  display: flex;
+  background: none; /* Remove old background */
+  box-shadow: none; /* Remove old shadow */
 }
 
 nav li {
   /* float: left; -- not needed with flex */
 }
 
-nav li a {
+nav li a, nav li button {
   display: block;
   color: white;
   text-align: center;
   padding: 14px 16px;
   text-decoration: none;
+  background: none;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.18s;
 }
 
-nav li a:hover {
-  background-color: #111;
+nav li a:hover, nav li button:hover {
+  background-color: #1741a6;
 }
 
 hr {

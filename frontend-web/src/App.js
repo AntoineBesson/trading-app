@@ -114,6 +114,7 @@ function App() {
           <Route element={<PrivateRoute />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/content" element={<ContentListPage />} />
+            <Route path="/education" element={<ContentListPage />} />
             <Route path="/content/:contentId" element={<ContentDetailPage />} />
             <Route path="/trade" element={<TradingPage />} />
             <Route path="/portfolio" element={<PortfolioPage />} />

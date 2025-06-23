@@ -81,14 +81,23 @@ export default function PortfolioPage() {
   }
 
   // Calculate invested and uninvested (cash) for pie chart
-  const invested = (portfolio.holdings || []).reduce((sum, h) => sum + (h.current_value || 0), 0);
-  const total = Number(portfolio.summary.total_portfolio_value) || invested;
-  const cash = total - invested;
+  const invested = (portfolio.holdings || []).reduce((sum, h) => sum + Number(h.current_value || 0), 0);
+  const cash = Number(portfolio.summary.user_cash_balance || 0);
+  const total = invested + cash;
 
-  // Pie chart data: show invested and cash
+  // Pie chart data: show each holding and cash as separate slices
   const pieData = [
-    { name: 'Invested', value: invested },
-    { name: 'Cash', value: cash > 0 ? cash : 0 }
+    ...(portfolio.holdings || []).map((h) => ({
+      name: h.name || h.symbol || 'Asset',
+      value: Number(h.current_value || 0)
+    })),
+    { name: 'Cash', value: cash }
+  ];
+
+  // Pie chart colors: one per holding, last color for cash (nav blue)
+  const NAV_BLUE = '#2563eb';
+  const PIE_COLORS = [
+    '#6366f1', '#60a5fa', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#f472b6', '#38bdf8', '#f59e42', '#10b981', '#e11d48', '#f43f5e', '#0ea5e9', '#facc15', '#a3e635', '#fbbf24', '#f472b6', '#818cf8', '#f87171'
   ];
 
   return (
@@ -99,7 +108,7 @@ export default function PortfolioPage() {
           <div style={styles.summary}><b>Total Value:</b> ${portfolio.summary.total_portfolio_value || 'N/A'}</div>
           <div style={styles.summary}><b>Total Cost:</b> ${portfolio.summary.total_portfolio_cost || 'N/A'}</div>
           <div style={styles.summary}><b>Profit/Loss:</b> ${portfolio.summary.overall_profit_loss || 'N/A'} ({portfolio.summary.overall_profit_loss_percent || 'N/A'})</div>
-          <div style={styles.summary}><b>Total Cash:</b> ${cash.toFixed(2)}</div>
+          <div style={styles.summary}><b>Total Cash:</b> ${portfolio.summary.user_cash_balance || 'N/A'}</div>
         </div>
         <div style={styles.section}>
           <h3 style={{marginBottom: '1rem', color: '#333'}}>Portfolio Breakdown</h3>
@@ -107,7 +116,7 @@ export default function PortfolioPage() {
             <PieChart>
               <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
                 {pieData.map((entry, idx) => (
-                  <Cell key={`cell-${idx}`} fill={idx === 0 ? '#6366f1' : '#60a5fa'} />
+                  <Cell key={`cell-${idx}`} fill={entry.name === 'Cash' ? NAV_BLUE : PIE_COLORS[idx % PIE_COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip />

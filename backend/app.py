@@ -273,7 +273,109 @@ def get_asset_price(symbol):
     else:
         return jsonify(message=f"Could not get price for {symbol}."), 503
 
-# --- Trading Simulator Endpoints ---
+@app.route('/assets/<string:symbol>/history', methods=['GET'])
+@jwt_required()
+def get_asset_history(symbol):
+    """
+    Returns historical price data for the given asset symbol and range.
+    Query param: range = '1d', '1m', '6m', 'ytd', '1y', '3y'
+    Output: [{"date": "2024-06-01", "price": 123.45}, ...]
+    """
+    asset_from_db = Asset.query.filter_by(symbol=symbol.upper()).first()
+    if not asset_from_db:
+        return jsonify(message=f"Asset {symbol} not found."), 404
+
+    range_param = request.args.get('range', '1d')
+    # Map range to Alpha Vantage function and outputsize
+    av_function = None
+    av_interval = None
+    av_outputsize = 'compact'
+    mock_points = 30
+    if range_param == '1d':
+        av_function = 'TIME_SERIES_INTRADAY'
+        av_interval = '30min'
+        mock_points = 24
+    elif range_param == '1m':
+        av_function = 'TIME_SERIES_DAILY'
+        av_outputsize = 'compact'
+        mock_points = 22
+    elif range_param == '6m':
+        av_function = 'TIME_SERIES_DAILY'
+        av_outputsize = 'full'
+        mock_points = 132
+    elif range_param == 'ytd' or range_param == '1y':
+        av_function = 'TIME_SERIES_DAILY'
+        av_outputsize = 'full'
+        mock_points = 252
+    elif range_param == '3y':
+        av_function = 'TIME_SERIES_WEEKLY'
+        mock_points = 156
+    else:
+        return jsonify(message="Invalid range parameter."), 400
+
+    # MOCK mode: return generated data
+    if os.environ.get('MOCK_ASSET_PRICES') == 'true':
+        import random
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        history = []
+        base_price = float(get_current_price_for_asset(asset_from_db) or 100)
+        for i in range(mock_points):
+            if range_param == '1d':
+                dt = now - timedelta(hours=mock_points - i)
+                label = dt.strftime('%H:%M')
+            elif range_param in ['1m', '6m', 'ytd', '1y']:
+                dt = now - timedelta(days=mock_points - i)
+                label = dt.strftime('%Y-%m-%d')
+            else:
+                dt = now - timedelta(weeks=mock_points - i)
+                label = dt.strftime('%Y-%m-%d')
+            price = round(base_price * (1 + random.uniform(-0.05, 0.05)), 2)
+            history.append({"date": label, "price": price})
+        return jsonify(history=history), 200
+
+    # Alpha Vantage mode
+    api_key = app.config.get('ALPHA_VANTAGE_API_KEY')
+    if not api_key or api_key.startswith('YOUR_ALPHA_VANTAGE_API_KEY'):
+        return jsonify(message="Alpha Vantage API Key not configured."), 503
+    try:
+        if asset_from_db.asset_type.lower() == 'stock':
+            ts = TimeSeries(key=api_key, output_format='json')
+            if av_function == 'TIME_SERIES_INTRADAY':
+                data, _ = ts.get_intraday(symbol=asset_from_db.symbol, interval=av_interval, outputsize='compact')
+                series = data.get(f'Time Series ({av_interval})', {})
+            elif av_function == 'TIME_SERIES_DAILY':
+                data, _ = ts.get_daily(symbol=asset_from_db.symbol, outputsize=av_outputsize)
+                series = data.get('Time Series (Daily)', {})
+            elif av_function == 'TIME_SERIES_WEEKLY':
+                data, _ = ts.get_weekly(symbol=asset_from_db.symbol)
+                series = data.get('Weekly Time Series', {})
+            else:
+                return jsonify(message="Unsupported function for stocks."), 400
+            # Format: [{date, price}]
+            history = []
+            for date_str, values in list(series.items())[:mock_points][::-1]:
+                price = float(values.get('4. close', 0))
+                history.append({"date": date_str, "price": price})
+            return jsonify(history=history), 200
+        elif asset_from_db.asset_type.lower() == 'crypto':
+            # Only support daily for crypto for simplicity
+            fe = ForeignExchange(key=api_key, output_format='json')
+            from_currency = asset_from_db.symbol[:-3] if asset_from_db.symbol.endswith('USD') else asset_from_db.symbol
+            to_currency = 'USD'
+            data, _ = fe.get_digital_currency_daily(symbol=from_currency, market=to_currency)
+            series = data.get('Time Series (Digital Currency Daily)', {})
+            history = []
+            for date_str, values in list(series.items())[:mock_points][::-1]:
+                price = float(values.get('4a. close (USD)', 0))
+                history.append({"date": date_str, "price": price})
+            return jsonify(history=history), 200
+        else:
+            return jsonify(message="Unsupported asset type for history."), 400
+    except Exception as e:
+        app.logger.error(f"Error fetching history for {symbol}: {str(e)}")
+        return jsonify(message=f"Error fetching history for {symbol}: {str(e)}"), 500
+
 @app.route('/trades/order', methods=['POST'])
 @jwt_required()
 def place_trade_order():
@@ -444,6 +546,25 @@ def get_portfolio():
     }
 
     return jsonify(holdings=portfolio_data, summary=summary_data), 200
+
+@app.route('/education/progress', methods=['GET', 'POST'])
+@jwt_required()
+def education_progress():
+    raw_identity = get_jwt_identity()
+    user_id = json.loads(raw_identity)['id']
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify(message='User not found'), 404
+
+    if request.method == 'GET':
+        return jsonify(progress=user.education_progress or {}, quiz=user.education_quiz or {})
+
+    if request.method == 'POST':
+        data = request.get_json()
+        user.education_progress = data.get('progress')
+        user.education_quiz = data.get('quiz')
+        db.session.commit()
+        return jsonify(message='Progress updated'), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))

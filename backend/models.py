@@ -13,6 +13,9 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     cash_balance = db.Column(db.Numeric(precision=18, scale=2), nullable=False, default=Decimal('10000.00'))
     created_at = db.Column(db.TIMESTAMP(timezone=True), server_default=db.func.now())
+    # Add education progress and quiz state as JSON columns
+    education_progress = db.Column(db.JSON, nullable=True)
+    education_quiz = db.Column(db.JSON, nullable=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
