@@ -368,36 +368,36 @@ const curriculumData = {
                 title: 'What is Blockchain Technology?',
                 content: `Blockchain is a decentralized, distributed, and immutable digital ledger. <ul><li><b>Decentralized:</b> Controlled by no single entity.</li><li><b>Distributed:</b> Copied and spread across many computers.</li><li><b>Immutable:</b> Transactions are cryptographically secured and nearly impossible to alter once recorded.</li></ul>This allows for secure peer-to-peer transactions without a central intermediary like a bank.`,
                 quiz: {
-                    question: 'What does "immutable" mean in the context of blockchain?',
-                    options: ['It is controlled by a central bank', 'Transactions can be easily changed', 'Transactions are nearly impossible to alter once recorded', 'It is a physical ledger'],
-                    answer: 2
+                  question: 'What does "immutable" mean in the context of blockchain?',
+                  options: ['It is controlled by a central bank', 'Transactions can be easily changed', 'Transactions are nearly impossible to alter once recorded', 'It is a physical ledger'],
+                  answer: 2
                 }
             },
             {
                 title: 'Coins vs. Tokens',
                 content: `Though often used interchangeably, there's a key difference:<ul><li><b>Coins (e.g., BTC, ETH):</b> Are native to their own independent blockchain. They are the "currency" of the network.</li><li><b>Tokens (e.g., UNI, LINK):</b> Are built on top of an existing blockchain (most commonly Ethereum). They don't have their own blockchain and are easier to create.</li></ul> In short: coins have their own blockchains; tokens live on other coins' blockchains.`,
                 quiz: {
-                    question: 'Which of the following is considered a "coin" because it has its own blockchain?',
-                    options: ['UNI (Uniswap)', 'LINK (Chainlink)', 'ETH (Ethereum)', 'SHIB (Shiba Inu)'],
-                    answer: 2
+                  question: 'Which of the following is considered a "coin" because it has its own blockchain?',
+                  options: ['UNI (Uniswap)', 'LINK (Chainlink)', 'ETH (Ethereum)', 'SHIB (Shiba Inu)'],
+                  answer: 2
                 }
             },
             {
                 title: 'Bitcoin (BTC): The Original',
                 content: `Created in 2008, Bitcoin is the first decentralized digital currency. Its primary use cases have evolved to be a <b>medium of exchange</b> and, more prominently, a <b>store of value</b>, often called "digital gold" due to its fixed supply of 21 million coins.`,
                 quiz: {
-                    question: 'What is a primary use case for Bitcoin?',
-                    options: ['Running smart contracts', 'A store of value', 'Creating decentralized apps', 'Powering private blockchains'],
-                    answer: 1
+                  question: 'What is a primary use case for Bitcoin?',
+                  options: ['Running smart contracts', 'A store of value', 'Creating decentralized apps', 'Powering private blockchains'],
+                  answer: 1
                 }
             },
             {
                 title: 'Ethereum (ETH): The World Computer',
                 content: `Ethereum introduced <b>smart contracts</b>—self-executing contracts with their terms written into code. This transformed blockchain from just money into a programmable platform. If Bitcoin is a calculator, Ethereum is a global computer on which developers can build <b>decentralized applications (dApps)</b> for things like DeFi and NFTs.`,
                 quiz: {
-                    question: 'What key innovation did Ethereum introduce?',
-                    options: ['Proof-of-Work', 'A fixed supply of coins', 'Smart Contracts', 'Anonymity'],
-                    answer: 2
+                  question: 'What key innovation did Ethereum introduce?',
+                  options: ['Proof-of-Work', 'A fixed supply of coins', 'Smart Contracts', 'Anonymity'],
+                  answer: 2
                 }
             }
         ]
@@ -813,10 +813,10 @@ export default function EducationPage() {
   const activeModuleIdx = activePartData.modules.findIndex(m => m.id === currentModule);
 
   // Render nothing until progress is loaded
-  if (!progressLoaded) return <div style={{padding:'2rem'}}>Loading your progress...</div>;
+  if (!progressLoaded) return <div style={{padding:'2rem'}}>Loading progress...</div>;
 
   return (
-    <div style={styles.background}>
+    <div style={{ ...styles.background, position: 'relative' }}>
       <div style={styles.container}>
         <aside style={styles.sidebar}>
           <div style={styles.sidebarTitle}>Curriculum</div>
@@ -885,9 +885,9 @@ export default function EducationPage() {
                             {quizResult && (
                               <div style={{ marginTop: '0.7rem', color: quizResult.correct ? '#34d399' : '#f87171', fontWeight: 600 }}>
                                 {quizResult.answered && quizResult.correct
-                                  ? 'Correct! Next lesson unlocked.'
+                                  ? 'Correct!'
                                   : quizResult.selected !== undefined
-                                    ? 'Incorrect. Please review the lesson and try again.'
+                                    ? 'Incorrect'
                                     : ''}
                               </div>
                             )}

@@ -105,14 +105,14 @@ export default function PortfolioPage() {
     return <div style={styles.background}><div style={styles.card}>Loading portfolio...</div></div>;
   }
   if (error) {
-    return <div style={styles.background}><div style={styles.card}><div style={styles.error}>Error: {error}</div></div></div>;
+    return <div style={styles.background}><div style={styles.card}><div style={styles.error}>{error}</div></div></div>;
   }
   if (!portfolio || !portfolio.summary) {
     return (
       <div style={styles.background}>
         <div style={styles.card}>
           <div style={styles.title}>Portfolio</div>
-          <p>No portfolio data available or portfolio is empty.</p>
+          <p>No portfolio data available.</p>
         </div>
       </div>
     );
@@ -139,14 +139,14 @@ export default function PortfolioPage() {
   ];
 
   return (
-    <div style={styles.background}>
+    <div style={{ ...styles.background }}>
       <div style={styles.card}>
         <div style={styles.title}>Portfolio</div>
         <div style={styles.section}>
-          <div style={styles.summary}><b>Total Value:</b> ${portfolio.summary.total_portfolio_value || 'N/A'}</div>
-          <div style={styles.summary}><b>Total Cost:</b> ${portfolio.summary.total_portfolio_cost || 'N/A'}</div>
-          <div style={styles.summary}><b>Profit/Loss:</b> ${portfolio.summary.overall_profit_loss || 'N/A'} ({portfolio.summary.overall_profit_loss_percent || 'N/A'})</div>
-          <div style={styles.summary}><b>Total Cash:</b> ${portfolio.summary.user_cash_balance || 'N/A'}</div>
+          <div style={styles.summary}><b>Total Value</b> ${portfolio.summary.total_portfolio_value || 'N/A'}</div>
+          <div style={styles.summary}><b>Total Cost</b> ${portfolio.summary.total_portfolio_cost || 'N/A'}</div>
+          <div style={styles.summary}><b>Profit/Loss</b> ${portfolio.summary.overall_profit_loss || 'N/A'} ({portfolio.summary.overall_profit_loss_percent || 'N/A'})</div>
+          <div style={styles.summary}><b>Total Cash</b> ${portfolio.summary.user_cash_balance || 'N/A'}</div>
         </div>
         <div style={styles.section}>
           <h3 style={{marginBottom: '1rem', color: '#333'}}>Portfolio Breakdown</h3>

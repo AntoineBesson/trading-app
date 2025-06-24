@@ -18,6 +18,7 @@ const styles = {
     maxWidth: '480px',
     width: '100%',
     textAlign: 'center',
+    margin: '0 auto',
   },
   headline: {
     fontSize: '2.5rem',
@@ -56,32 +57,35 @@ const styles = {
     borderRadius: '8px',
     textDecoration: 'none',
     fontWeight: 600,
+    boxShadow: '0 2px 8px rgba(99,102,241,0.08)',
     cursor: 'pointer',
     margin: '0 10px',
     display: 'inline-block',
     transition: 'background 0.2s',
-  }
+  },
 };
 
 export default function HomePage() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <div style={styles.background}>
-      <div style={styles.hero}>
-        <div style={styles.headline}>Welcome to Your Trading Journey</div>
-        <div style={styles.description}>
-          Learn the ins and outs of trading with our comprehensive educational resources and practice your skills with our realistic trading simulator. Start building your financial knowledge today.
-        </div>
-        <div>
-          {isAuthenticated ? (
-            <Link to="/dashboard" style={styles.ctaButton}>Go to Dashboard</Link>
-          ) : (
-            <>
-              <Link to="/login" style={styles.ctaButton}>Sign In</Link>
-              <Link to="/register" style={styles.secondaryButton}>Register</Link>
-            </>
-          )}
+    <div style={{ minHeight: '100vh' }}>
+      <div style={styles.background}>
+        <div style={styles.hero}>
+          <div style={styles.headline}>Welcome to the Trading App</div>
+          <div style={styles.description}>
+            Learn, practice, and master trading with our interactive platform. Whether you're a beginner or an experienced trader, our app provides the tools and resources you need to succeed.
+          </div>
+          <div>
+            {isAuthenticated ? (
+              <Link to="/dashboard" style={styles.ctaButton}>Go to Dashboard</Link>
+            ) : (
+              <>
+                <Link to="/register" style={styles.ctaButton}>Get Started</Link>
+                <Link to="/login" style={styles.secondaryButton}>Login</Link>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

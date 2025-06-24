@@ -3,7 +3,6 @@ import assetService from '../services/assetService';
 import portfolioService from '../services/portfolioService';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
-// Basic inline styles
 const styles = {
   page: { padding: '20px', maxWidth: '800px', margin: '0 auto' },
   formSection: {
@@ -16,7 +15,7 @@ const styles = {
   inputGroup: { marginBottom: '15px' },
   label: { display: 'block', marginBottom: '5px', fontWeight: 'bold' },
   input: {
-    width: 'calc(100% - 22px)', // Adjust for padding and border
+    width: 'calc(100% - 22px)',
     padding: '10px',
     border: '1px solid #ccc',
     borderRadius: '3px'
@@ -173,7 +172,7 @@ export default function TradingPage() {
     setOrderSubmitting(false);
   };
 
-  if (assetsLoading) return <p style={styles.loading}>Loading available assets...</p>;
+  if (assetsLoading) return <p style={styles.loading}>Loading assets...</p>;
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f8fafc 0%, #e0e7ef 100%)', padding: '2.5rem 0' }}>
@@ -185,11 +184,10 @@ export default function TradingPage() {
               Cash Available: ${parseFloat(cashBalance).toFixed(2)}
             </div>
           )}
-
           <div style={{ marginBottom: '2.5rem' }}>
             <form onSubmit={handleSubmitOrder} style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'flex-end' }}>
               <div style={{ flex: 1, minWidth: 220 }}>
-                <label htmlFor="assetSelect" style={{ fontWeight: 600, color: '#222', marginBottom: 6, display: 'block' }}>Select Asset:</label>
+                <label htmlFor="assetSelect" style={{ fontWeight: 600, color: '#222', marginBottom: 6, display: 'block' }}>Select Asset</label>
                 <select
                   id="assetSelect"
                   value={selectedAssetSymbol}
@@ -206,13 +204,13 @@ export default function TradingPage() {
                 </select>
               </div>
               <div style={{ flex: 1, minWidth: 120 }}>
-                <label htmlFor="quantity" style={{ fontWeight: 600, color: '#222', marginBottom: 6, display: 'block' }}>Quantity:</label>
+                <label htmlFor="quantity" style={{ fontWeight: 600, color: '#222', marginBottom: 6, display: 'block' }}>Quantity</label>
                 <input
                   type="number"
                   id="quantity"
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
-                  placeholder="e.g., 10"
+                  placeholder="Enter quantity"
                   style={{ width: '100%', padding: '0.7rem', borderRadius: '8px', border: '1px solid #e5e7eb', fontSize: '1.08rem' }}
                   min="0.00000001"
                   step="any"
@@ -220,7 +218,7 @@ export default function TradingPage() {
                 />
               </div>
               <div style={{ flex: 1, minWidth: 120 }}>
-                <label htmlFor="orderType" style={{ fontWeight: 600, color: '#222', marginBottom: 6, display: 'block' }}>Order Type:</label>
+                <label htmlFor="orderType" style={{ fontWeight: 600, color: '#222', marginBottom: 6, display: 'block' }}>Order Type</label>
                 <select
                   id="orderType"
                   value={orderType}
@@ -262,32 +260,40 @@ export default function TradingPage() {
                 <div style={{ flex: 2, minWidth: 320 }}>
                   {/* Timeframe selector and chart */}
                   <div style={{ display: 'flex', gap: '0.5rem', marginBottom: 10 }}>
-                    {[ // FIX: Use array instead of object for timeframe selector
-                    { label: '24h', value: '1d' },
-                    { label: '1M', value: '1m' },
-                    { label: '6M', value: '6m' },
-                    { label: 'YTD', value: 'ytd' },
-                    { label: '1Y', value: '1y' },
-                    { label: '3Y', value: '3y' }
-                  ].map(tf => (
-                    <button
-                      key={tf.value}
-                      onClick={() => setTimeframe(tf.value)}
-                      style={{
-                        background: timeframe === tf.value ? '#2563eb' : '#e0e7ef',
-                        color: timeframe === tf.value ? '#fff' : '#222',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '6px 16px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        fontSize: '1rem',
-                        transition: 'background 0.18s',
-                      }}
-                    >
-                      {tf.label}
-                    </button>
-                  ))}
+                    {/*
+                      { label: t('timeframe_1d', '24h'), value: '1d' },
+                      { label: t('timeframe_1m', '1M'), value: '1m' },
+                      { label: t('timeframe_6m', '6M'), value: '6m' },
+                      { label: t('timeframe_ytd', 'YTD'), value: 'ytd' },
+                      { label: t('timeframe_1y', '1Y'), value: '1y' },
+                      { label: t('timeframe_3y', '3Y'), value: '3y' }
+                    */}
+                    {[
+                      { label: '24h', value: '1d' },
+                      { label: '1M', value: '1m' },
+                      { label: '6M', value: '6m' },
+                      { label: 'YTD', value: 'ytd' },
+                      { label: '1Y', value: '1y' },
+                      { label: '3Y', value: '3y' }
+                    ].map(tf => (
+                      <button
+                        key={tf.value}
+                        onClick={() => setTimeframe(tf.value)}
+                        style={{
+                          background: timeframe === tf.value ? '#2563eb' : '#e0e7ef',
+                          color: timeframe === tf.value ? '#fff' : '#222',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '6px 16px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          fontSize: '1rem',
+                          transition: 'background 0.18s',
+                        }}
+                      >
+                        {tf.label}
+                      </button>
+                    ))}
                   </div>
                   {historyLoading ? (
                     <div style={{ padding: '2rem', textAlign: 'center' }}>Loading chart...</div>

@@ -5,18 +5,22 @@ import { useAuth } from '../contexts/AuthContext';
 const styles = {
   background: {
     minHeight: '100vh',
+    width: '100vw',
     background: 'linear-gradient(135deg, #f8fafc 0%, #e0e7ef 100%)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+    overflow: 'auto',
   },
   card: {
     background: '#fff',
     padding: '2.5rem 2rem',
     borderRadius: '16px',
     boxShadow: '0 4px 32px rgba(0,0,0,0.08)',
-    minWidth: '320px',
-    maxWidth: '90vw',
+    minWidth: 320,
+    maxWidth: 400,
+    width: '100%',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -105,7 +109,7 @@ export default function LoginPage() {
   return (
     <div style={styles.background}>
       <div style={styles.card}>
-        <div style={styles.title}>Sign in to Trading App</div>
+        <div style={styles.title}>Sign In</div>
         {isAuthenticated && (
           <div style={styles.already}>
             You are already logged in. <Link to="/dashboard" style={styles.link}>Go to Dashboard</Link>
@@ -136,7 +140,7 @@ export default function LoginPage() {
           />
           {error && <div style={styles.error}>{error}</div>}
           <button type="submit" disabled={loading || isAuthenticated} style={styles.button}>
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
         <Link to="/register" style={styles.link}>Don't have an account? Register</Link>

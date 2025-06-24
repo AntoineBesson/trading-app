@@ -7,14 +7,13 @@ import '../admin-panel.css';
 
 const TABS = [
   { key: 'news', label: 'News' },
-  { key: 'lessons', label: 'Lessons & Modules' },
+  { key: 'lessons', label: 'Lessons' },
   { key: 'quizzes', label: 'Quizzes' },
   { key: 'users', label: 'Users' },
 ];
 
 export default function AdminPanelPage() {
   const [activeTab, setActiveTab] = useState('news');
-
   return (
     <div className="admin-panel-container">
       <h1 style={{color:'#2563eb',marginBottom:'1.5rem'}}>Admin Panel</h1>
