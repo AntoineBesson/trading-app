@@ -12,4 +12,5 @@ This project was instrumental in developing and reinforcing several key skills:
 - Designed and managed a database to handle user data, trading history, and educational content.
 ## Front-End Implementation:
 - Gained practical experience in resolving common CSS and JavaScript issues to create a responsive and interactive user interface.
-- Financial Concepts:Developed a foundational understanding of trading principles, including concepts like calls, options, and market analysis, which are integrated into the app's features and courses.
+## Financial Concepts:
+Developed a foundational understanding of trading principles, including concepts like calls, options, and market analysis, which are integrated into the app's features and courses.
